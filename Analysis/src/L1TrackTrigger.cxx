@@ -19,7 +19,7 @@ std::vector<pattern_t> patternvec;
 std::vector<mctrack_t> houghc;
 
 
-std::vector<mctrack_t> tk_assoc;
+std::vector<mctrack_t> tk_asso;
 std::vector<mctrack_t> tk_fake;
 
 void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
@@ -71,7 +71,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 	if ( im->second.valid) 
 	  {
 	    double dph=tan(im->second.phi-phih);						
-	    printf("%f %f => %f  \n",tan(im->second.phi),tan(phih),tan(im->second.phi-phih));
+	    //printf("%f %f => %f  \n",tan(im->second.phi),tan(phih),tan(im->second.phi-phih));
 	    if (abs((im->second.pt-pth)/pth*dph)>8*3E-4) continue;
 			  //if (abs((im->second.pt-pth)/pth)>0.25) continue;
 			  // if (abs((im->second.phi-phih))>0.06) continue;
@@ -96,9 +96,9 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
     
       if (ismin==mcmap.end()) 
 	{
-	  nfake++;
+	  // nfake++;
 	  //printf("#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
-	  nfaketot1++;
+	  // nfaketot1++;
 	  
 	  //hfake2e->Fill(dptmin/pth,dphmin);
 	  double distm=99999.;
@@ -159,7 +159,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 				
 				
 	  }
-      nfaketot+=nfake;
+      //nfaketot+=nfake;
       printf("Number of fake %d  %d %d\n",nfake,nfaketot,nfaketot1); 
       //      getchar();
       if (nfake!=0)hnfake->Fill(nfake*1.);
@@ -180,12 +180,12 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
       std::map<int32_t,mctrack_t>::iterator ismin=mcmap.end();
           		   				
       for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-	if ( im->second.valid || true ) 
+	if (  true ) //im->second.valid ||
 	  {
 	    double dph=tan(im->second.phi-phih);						
 	    double dpt=im->second.pt-pth;
-	    if (abs(dph)>9E-3) continue;
-	    if (abs(dpt)/pth>9E-2) continue;
+	    if (abs(dph)>1E-2) continue;
+	    if (abs(dpt)/pth>1E-1) continue;
 	    if (abs(dpt/pth*dph)<errmin)
 	      {
 		dptmin=abs(dpt);
@@ -197,62 +197,98 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	  }
       if (ismin!=mcmap.end())
 	{
-	  printf("Valid Track %d %f %f \n",ismin->second.id,ismin->second.pt,tan(ismin->second.phi));
+
+	  mctrack_t& tk=(*ihbp);
+	  //printf("==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),tk_asso.size());
+	  double err_ass=9999.;
+	  std::vector<mctrack_t>::iterator isbest=tk_asso.end();
+	  bool found=false;
+	  for (std::vector <mctrack_t>::iterator ia=tk_asso.begin();ia<tk_asso.end();)
+	    {
+	      double dph=tan(ismin->second.phi-(*ia).phi);						
+	      double dpt=ismin->second.pt-(*ia).pt;
+	      if (abs(dph)>1E-2) {ia++;continue;}
+	      if (abs(dpt)/(*ia).pt>1E-1) {ia++;continue;}
+	      double err=abs(dpt/(*ia).pt*dph);
+	      if (err<=errmin)
+		{
+		  errmin=err;
+		  found=true;
+		  ia++; continue;
+		}
+	      else
+		{
+		  //printf("erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
+		  tk_asso.erase(ia);
+		}
+	    }
+	  if (!found)
+	    {
+		  tk_asso.push_back(tk);
+
+		  // printf("Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+
+	    }
+	  ismin->second.matches++;
+	  continue;
 	}
     
       if (ismin==mcmap.end()) 
 	{
-	  nfake++;
-	  //printf("#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
-	  nfaketot1++;
-	  
-	  //hfake2e->Fill(dptmin/pth,dphmin);
-	  double distm=99999.;
-	  for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-	    if (im->second.valid || true) 
-	      {
-		//printf("\t %f %f \n",(im->second.pt-pth)/pth,(im->second.phi-phih));
-		//double dph=fmod(im->second.phi-phih,PI);
-		double dph=tan(im->second.phi-phih);						
-
-		if (abs((im->second.pt-pth)/pth*(dph))<distm) {
-		  distm=abs((im->second.pt-pth)/pth*tan(im->second.phi-phih));
-		  double dph=tan(im->second.phi-phih);
-		  double dpt=im->second.pt-pth;
-		  dptmin=abs(dpt);
-		 dphmin=abs(dph);
-		}
-	      }
-
-	  if (distm>8*3E-4) {
-	    herrors->Fill(distm);
-	    
-	    hfake2e->Fill(dptmin/pth,dphmin);
-	    hfake2->Fill(pth,tan(phih));
+	  // Not found in MC tracks
+	  mctrack_t& tk=(*ihbp);
+	  double err_ass=9999.;
+	  bool found=false;
+	  for (std::vector <mctrack_t>::iterator ia=tk_fake.begin();ia<tk_fake.end();ia++)
+	  {
+	      double dph=tan(tk.phi-(*ia).phi);						
+	      double dpt=tk.pt-(*ia).pt;
+	      if (abs(dph)>5E-3) {ia++;continue;}
+	      if (abs(dpt)/(*ia).pt>5E-2) {ia++;continue;}
+	      found=true;
+	      break;
 	  }
-	  continue;
+	  if (!found && tk.pt>2.)
+	    {
+		  tk_fake.push_back(tk);
+
+		  // printf("Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+
+	    }
 	}
 		    //printf("Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
-      hdpt->Fill((ismin->second.pt-pth)/pth);
-      hdphi->Fill(tan(ismin->second.phi-phih));
-      hpt2->Fill(ismin->second.pt,pth);
-      hphi2->Fill(tan(ismin->second.phi),tan(phih));
-      hpt2p->Fill(ismin->second.pt,pth);
-      hphi2p->Fill(tan(ismin->second.phi),tan(phih));
-      hfound2->Fill(ismin->second.pt,tan(ismin->second.phi));
-      hfound2e->Fill((ismin->second.pt-pth)/pth,tan(ismin->second.phi-phih));
-      ismin->second.matches++;
     }
 
+ printf(" Number of Hough candidate %d and good %d  and fake %d \n",houghc.size(),tk_asso.size(),tk_fake.size());
+ for (std::vector <mctrack_t>::iterator ihbp=tk_asso.begin();ihbp<tk_asso.end();ihbp++)
+   printf("Valid Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+ for (std::vector <mctrack_t>::iterator ihbp=tk_fake.begin();ihbp<tk_fake.end();ihbp++)
+   printf("-------------> Fake Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+ nfake_+=tk_fake.size();
+ for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+   {
+     if (im->second.valid)
+       {
+	 ngoodmc_++;
+	 if (im->second.matches==0)
+	   {
+	     nmiss_++;
+	     printf("++++++ missed MC Track %f %f \n",im->second.pt,tan(im->second.phi));
+	   }
+	   
+       }
+   }
+
+ printf("Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
 }
 
 void L1TrackTrigger::event_hough(DCHistogramHandler* d)
 {
   houghc.clear();
-  tk_assoc.clear();
+  tk_asso.clear();
   tk_fake.clear();
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
-  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,128);
+  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,160);
   for (std::map<uint32_t,stub_t>::iterator is=stubmap.begin();is!=stubmap.end();is++)
     {
       //htl_->fill(is->second.x,is->second.y);
@@ -613,7 +649,7 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
     sector_list[sector_id]=s;
   }
   delete SEC;
-
+  ngoodmc_=0;nmiss_=0;nfake_=0;
   // Initi Histos
   TH2F*	hext2=(TH2F*) rootHandler_.BookTH2("Ext2",200,0.,100.,200,-3.,3.);
   TH1F* hptgen=(TH1F*)rootHandler_.BookTH1("PtGen",500,0.5,5.);
@@ -785,7 +821,7 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
 	    if ((im->second.nstubs>>ib)&1) np++;
 	
 	  if (im->second.pt<1.2) continue;	  
-	  if (np>=3 &&im->second.pt>2 ) 
+	  if (np>=4 &&im->second.pt>2 ) 
 	    {
 	      printf("MC %d NSTUB %x %d PT %f   tg(phi) %f\n",im->second.id,im->second.nstubs,np,im->second.pt,tan(im->second.phi));
 	      if (np>im->second.maxstubs) 	im->second.maxstubs=np;
@@ -809,6 +845,7 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
 	if (im->second.valid) ngood++;
       printf("MC map size %d Good %d \n",(int) mcmap.size(),ngood);
       event_hough(&rootHandler_);
+      associate();
       fill_histos(&rootHandler_);
       continue;
       hntracks->Fill(ngood*1.);

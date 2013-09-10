@@ -23,7 +23,7 @@ void workerFunc(TApplication* ta)
     {
       //gSystem->Run();
 					
-      sleep((unsigned int) 3000000000);
+      sleep((unsigned int) 30000000);
     }
   std::cout << "Worker: finished" << std::endl;  
 } 
@@ -49,7 +49,7 @@ void analysis(TApplication* theApp)
   //std::string fname="/home/mirabito/patterns6LNoZ_16ss_30_6on6.root";
   //std::string fname="/home/mirabito/activePatternsBARREL_THRESH3_PU_5on6NUM.root";
   //std::string fname="/home/mirabito/activePatternsBARREL_THRESH2_PU_5on6_hough.root";
-  std::string fname="/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec24_ss32_cov40_5on6.root";
+  std::string fname="/home/laurent/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec40_ss32_cov40_4on6.root";
   l.do_ana(fname,2500);
 #endif
 
