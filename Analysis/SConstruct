@@ -1,0 +1,159 @@
+import sys,os,commands
+import  os
+import re
+import sys
+
+#Swig example
+def SWIGSharedLibrary(env, library, sources, **args):
+  swigre = re.compile('(.*).i')
+  if env.WhereIs('swig') is None:
+    sourcesbis = []
+    for source in sources:
+      cName = swigre.sub(r'\1_wrap.c', source)
+      cppName = swigre.sub(r'\1_wrap.cc', source)
+      if os.path.exists(cName):
+        sourcesbis.append(cName)
+      elif os.path.exists(cppName):
+        sourcesbis.append(cppName)
+      else:
+        sourcesbis.append(source)
+  else:
+    sourcesbis = sources
+ 
+  if 'SWIGFLAGS' in args:
+    args['SWIGFLAGS'] += ['-python']
+  else:
+    args['SWIGFLAGS'] = ['-python'] + env['SWIGFLAGS']
+  args['SHLIBPREFIX']=""
+  if sys.version >= '2.5':
+    args['SHLIBSUFFIX']=".pyd"
+ 
+  cat=env.SharedLibrary(library, sourcesbis, **args)
+  return cat
+ 
+
+
+# environment
+USE_CULA=False
+USE_CIMG=False
+USE_OPENCV=False
+#import xdaq
+#print xdaq.INCLUDES
+#print xdaq.LIBRARY_PATHS
+#print xdaq.LIBRARIES
+
+#print "----------------------------------------------"
+Decider('MD5-timestamp')
+LOCAL_ROOT="/opt/local"
+DHCAL_ROOT=os.path.abspath("..")
+
+# includes
+INCLUDES=['include',"/usr/include","/usr/local/include","/usr/local/cuda/include","/usr/local/cula/include","/usr/X11R6/include"]
+#LCIO
+#INCLUDES.append(os.path.join(os.getenv("LCIODIR"),"include"))
+#INCLUDES.append(os.path.join(os.getenv("LCIODIR"),"include","IMPL"))
+#MYSQL and sqlite
+#INCLUDES.append("/usr/include/libxml2")
+#eigen3
+#INCLUDES.append("/usr/local/include/eigen3/")
+#python
+INCLUDES.append(commands.getoutput("python -c 'import distutils.sysconfig as conf; print conf.get_python_inc()'"))
+
+#flags
+CPPFLAGS=commands.getoutput("$ROOTSYS/bin/root-config --cflags").split(" ") + ["-O4","-DLINUX", "-DREENTRANT" ,"-Dlinux", "-DLITTLE_ENDIAN__", "-Dx86","-DDAQ_VERSION_2","-Wno-deprecated"] 
+#if (USE_OPENCV):
+#	CPPFLAGS.append(commands.getoutput("pkg-config --cflags opencv").split(" "));
+#	CPPFLAGS.append("-DUSE_OPENCV")
+#if (USE_CIMG):
+#	CPPFLAGS.append("-Dcimg_use_vt100")
+#	CPPFLAGS.append("-DUSE_CIMG")
+if (USE_CULA):
+	CPPFLAGS.append("-DUSE_CULA")
+#Library ROOT + some of XDAQ + DB 
+ROOT_LIBS=[lib[2:] for lib in filter(lambda x: (x[:2]=="-l"), commands.getoutput("$ROOTSYS/bin/root-config --libs --ldflags --glibs").split(" "))
+]
+ROOT_LIBS.append('XMLIO')
+ROOT_LIBPATH=[lib[2:] for lib in filter(lambda x: (x[:2]=="-L"), commands.getoutput("$ROOTSYS/bin/root-config --libs ").split(" "))]
+#MYSQL
+#MY_LIBS=[lib[2:] for lib in filter(lambda x: (x[:2]=="-l"), commands.getoutput("mysql_config --libs").split(" "))]
+#MY_LIBPATH=[lib[2:] for lib in filter(lambda x: (x[:2]=="-L"), commands.getoutput("mysql_config --libs").split(" "))]
+
+#OpenCV
+#OCV_LIBS=[lib[15:len(lib)-3] for lib in filter(lambda x: (x[:15]=="/usr/local/lib/"), commands.getoutput("pkg-config --libs opencv").split(" "))]
+
+
+# cc 2706 LIBRARIES=ROOT_LIBS+['pthread', 'toolbox', 'xcept', 'config', 'log4cplus', 'asyncresolv', 'uuid', 'm', 'DHCDBUtils', 'occi', 'clntsh', 'nnz11', 'ilcconfdb', 'dbi','xerces-c', 'ftd2xx', 'stdc++','DHCEvent','ftdi','ftdipp']
+
+#CUDA
+CUDA_LIBS=["cula_core","cula_lapack","cublas","cudart"]
+CUDA_LIBPATH=[os.getenv("CULA_LIB_PATH_64"),"/usr/local/cula/lib"]
+
+
+# Summary
+
+LIBRARIES=ROOT_LIBS+['pthread','X11','boost_system','boost_thread']
+
+if (USE_CULA or USE_OPENCV):
+	LIBRARIES=LIBRARIES+CUDA_LIBS
+#if (USE_OPENCV):
+#	LIBRARIES=LIBRARIES+OCV_LIBS
+
+
+
+#Library path XDAQ,DHCAL and ROOT + Python
+LIBRARY_PATHS=ROOT_LIBPATH+["/usr/lib","/usr/local/lib"]
+LIBRARY_PATHS.append(commands.getoutput("python -c 'import distutils.sysconfig as conf; print conf.PREFIX'")+"/lib")
+#LIBRARY_PATHS.append(os.path.join(os.getenv("LCIODIR"),"lib"))
+
+if (USE_CULA or USE_OPENCV):
+	LIBRARY_PATHS=LIBRARY_PATHS+CUDA_LIBPATH
+
+
+#link flags
+LDFLAGS=commands.getoutput("$ROOTSYS/bin/root-config --ldflags").split(" ")
+LDFLAGS.append("-fPIC -dynamiclib ")
+
+# SWIG
+SWIGSF=["-c++","-classic"]
+
+for i in INCLUDES:
+    SWIGSF.append("-I"+i)
+print SWIGSF
+
+# Create the Environment
+env = Environment(CPPPATH=INCLUDES,CPPFLAGS=CPPFLAGS,LINKFLAGS=LDFLAGS, LIBS=LIBRARIES,LIBPATH=LIBRARY_PATHS,SWIGFLAGS=SWIGSF)
+
+#print "CC is:",env.subst('$CPPPATH')
+
+env['BUILDERS']['PythonModule'] = SWIGSharedLibrary
+
+
+# Library source
+#TRACKER_SRC_DIR=os.path.join(DHCAL_ROOT,"TrackerUtils","src/common")
+LIBRARY_SOURCES=Glob("#src/*.cxx")
+#LIBRARY_SOURCES.append(TRACKER_SRC_DIR+"/TShare.cc")
+#LIBRARY_SOURCES.append(TRACKER_SRC_DIR+"/LDAShare.cc")
+
+for i in LIBRARY_SOURCES:
+  print i 	 
+#Shared library
+AMEvent=env.Program("AMEvent",source=LIBRARY_SOURCES,LIBPATH=LIBRARY_PATHS,LIBS=LIBRARIES)
+
+#Python module
+#LDHCEvent=env.PythonModule('_DHCalEventReader', ['DHCalEventReader.i'],LIBPATH="#lib",LIBS="DHCEvent")
+
+#Test Program
+#EXE_LIBPATH=LIBRARY_PATHS
+#EXE_LIBPATH.append("#lib")
+##EXE_LIBS=LIBRARIES
+#EXE_LIBS.append("DHCEvent")
+#TMAIN=env.Program("bin/main",source="src/main.cxx",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
+
+Default([AMEvent])
+#env.Install("/opt/local/lib",DHCEvent)
+#env.Install("/opt/dhcal/lib",DIF)
+
+#env.Alias('install', ["/opt/local/lib"])
+
+
+

@@ -1,0 +1,37 @@
+#ifndef HoughStruct_def_
+#define HoughStruct_def_
+typedef struct {
+  int32_t id;
+  double phi;
+  double pt;
+  double eta;
+  double z0;
+  uint32_t nstubs;
+  uint32_t maxstubs;
+  uint32_t matches;
+  bool valid;
+} mctrack_t;
+
+
+typedef struct
+{
+  uint32_t id;
+  float x,y,z;
+  float xp,yp,r2;
+  int32_t tp;
+} stub_t;
+
+#define STUBID(layer,ladder,module,segment,strip) (((layer&0x7f)<<25)|((ladder&0x7f)<<18)|((module&0x7f)<<11)| ((segment&0x1)<<10)| (strip&0x3ff))
+#define LAYER(ID) ((ID>>25)&0x7F)
+#define LADDER(ID) ((ID>>18)&0x7F)
+#define MODULE(ID) ((ID>>11)&0x7F)
+#define SEGMENT(ID) ((ID>>10)&0x1)
+#define STRIP(ID) ((I&0x3FF))
+
+
+typedef struct
+{
+  std::vector<uint32_t> stubs_id;
+ 
+} pattern_t;
+#endif
