@@ -846,7 +846,7 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
       printf("MC map size %d Good %d \n",(int) mcmap.size(),ngood);
       event_hough(&rootHandler_);
       associate();
-      fill_histos(&rootHandler_);
+      //fill_histos(&rootHandler_);
       continue;
       hntracks->Fill(ngood*1.);
       hitIndex=0;

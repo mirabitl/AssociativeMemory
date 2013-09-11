@@ -10,6 +10,7 @@
 #include "TApplication.h"
 #include "TBrowser.h"
 //TApplication* ta=NULL;
+std::string filename;
 void workerFunc(TApplication* ta)  
 {  
   boost::posix_time::seconds workTime(3);  
@@ -50,15 +51,22 @@ void analysis(TApplication* theApp)
   //std::string fname="/home/mirabito/activePatternsBARREL_THRESH3_PU_5on6NUM.root";
   //std::string fname="/home/mirabito/activePatternsBARREL_THRESH2_PU_5on6_hough.root";
   std::string fname="/home/laurent/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec40_ss32_cov40_4on6.root";
-  l.do_ana(fname,2500);
+  std::cout<<filename<<std::endl;
+  l.do_ana(filename,0);
 #endif
 
 }
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
+  std::cout<<argc<<" "<<argv[1]<<std::endl;
+  std::string s(argv[1]);
+  filename=s;
+  std::cout<<filename<<std::endl;
+
   //ta=new 
   TApplication ta("THETEST",&argc,argv);
   //
+
 
   analysis(&ta);
   //workerThread.join();  
