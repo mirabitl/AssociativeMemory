@@ -71,7 +71,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 	if ( im->second.valid) 
 	  {
 	    double dph=tan(im->second.phi-phih);						
-	    //printf("%f %f => %f  \n",tan(im->second.phi),tan(phih),tan(im->second.phi-phih));
+	    //DEBUG_PRINT(logFile_,"%f %f => %f  \n",tan(im->second.phi),tan(phih),tan(im->second.phi-phih));
 	    if (abs((im->second.pt-pth)/pth*dph)>8*3E-4) continue;
 			  //if (abs((im->second.pt-pth)/pth)>0.25) continue;
 			  // if (abs((im->second.phi-phih))>0.06) continue;
@@ -92,12 +92,12 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 	      }
 	
 	  }
-		    //printf("Valid Track %d %f %f \n",im->second.id,im->second.pt,im->second.phi);
+		    //DEBUG_PRINT(logFile_,"Valid Track %d %f %f \n",im->second.id,im->second.pt,im->second.phi);
     
       if (ismin==mcmap.end()) 
 	{
 	  // nfake++;
-	  //printf("#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
+	  //DEBUG_PRINT(logFile_,"#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
 	  // nfaketot1++;
 	  
 	  //hfake2e->Fill(dptmin/pth,dphmin);
@@ -105,7 +105,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 	  for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
 	    if (im->second.valid || true) 
 	      {
-		//printf("\t %f %f \n",(im->second.pt-pth)/pth,(im->second.phi-phih));
+		//DEBUG_PRINT(logFile_,"\t %f %f \n",(im->second.pt-pth)/pth,(im->second.phi-phih));
 		//double dph=fmod(im->second.phi-phih,PI);
 		double dph=tan(im->second.phi-phih);						
 
@@ -126,7 +126,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 	  }
 	  continue;
 	}
-		    //printf("Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
+		    //DEBUG_PRINT(logFile_,"Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
       hdpt->Fill((ismin->second.pt-pth)/pth);
       hdphi->Fill(tan(ismin->second.phi-phih));
       hpt2->Fill(ismin->second.pt,pth);
@@ -142,7 +142,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
       for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
 	if (im->second.valid)
           {          
-            printf("Valid Track %d %f %f %f %f matches %d \n",im->second.id,im->second.pt,im->second.phi,im->second.z0,im->second.eta,im->second.matches);
+            DEBUG_PRINT(logFile_,"Valid Track %d %f %f %f %f matches %d \n",im->second.id,im->second.pt,im->second.phi,im->second.z0,im->second.eta,im->second.matches);
 	    hncout->Fill(im->second.maxstubs*1.);
 	    hnmatches->Fill(im->second.matches*1.);
 	    if (im->second.matches==0)
@@ -150,7 +150,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 		hmiss2->Fill(im->second.pt,tan(im->second.phi));
 		// for (std::vector<mctrack_t>::iterator ih=houghc.begin();ih!=houghc.end();ih++)
 		// {
-		// printf("Fake %f %f distance %f %f \n",ih->pt,ih->phi,im->second.pt-ih->pt,im->second.phi-ih->phi);
+		// DEBUG_PRINT(logFile_,"Fake %f %f distance %f %f \n",ih->pt,ih->phi,im->second.pt-ih->pt,im->second.phi-ih->phi);
 		// }
 		//getchar();
 		nmisses++;
@@ -160,7 +160,7 @@ void L1TrackTrigger::fill_histos(DCHistogramHandler* d)
 				
 	  }
       //nfaketot+=nfake;
-      printf("Number of fake %d  %d %d\n",nfake,nfaketot,nfaketot1); 
+      DEBUG_PRINT(logFile_,"Number of fake %d  %d %d\n",nfake,nfaketot,nfaketot1); 
       //      getchar();
       if (nfake!=0)hnfake->Fill(nfake*1.);
       hnmisses->Fill(nmisses*1.);
@@ -199,7 +199,7 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	{
 
 	  mctrack_t& tk=(*ihbp);
-	  //printf("==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),tk_asso.size());
+	  //DEBUG_PRINT(logFile_,"==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),tk_asso.size());
 	  double err_ass=9999.;
 	  std::vector<mctrack_t>::iterator isbest=tk_asso.end();
 	  bool found=false;
@@ -218,7 +218,7 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 		}
 	      else
 		{
-		  //printf("erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
+		  //DEBUG_PRINT(logFile_,"erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
 		  tk_asso.erase(ia);
 		}
 	    }
@@ -226,7 +226,7 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	    {
 		  tk_asso.push_back(tk);
 
-		  // printf("Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+		  // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
 
 	    }
 	  ismin->second.matches++;
@@ -252,18 +252,18 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	    {
 		  tk_fake.push_back(tk);
 
-		  // printf("Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+		  // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
 
 	    }
 	}
-		    //printf("Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
+		    //DEBUG_PRINT(logFile_,"Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
     }
 
- printf(" Number of Hough candidate %d and good %d  and fake %d \n",houghc.size(),tk_asso.size(),tk_fake.size());
+ DEBUG_PRINT(logFile_," Number of Hough candidate %d and good %d  and fake %d \n",houghc.size(),tk_asso.size(),tk_fake.size());
  for (std::vector <mctrack_t>::iterator ihbp=tk_asso.begin();ihbp<tk_asso.end();ihbp++)
-   printf("Valid Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+   DEBUG_PRINT(logFile_,"Valid Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
  for (std::vector <mctrack_t>::iterator ihbp=tk_fake.begin();ihbp<tk_fake.end();ihbp++)
-   printf("-------------> Fake Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+   DEBUG_PRINT(logFile_,"-------------> Fake Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
  nfake_+=tk_fake.size();
  for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
    {
@@ -273,13 +273,13 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	 if (im->second.matches==0)
 	   {
 	     nmiss_++;
-	     printf("++++++ missed MC Track %f %f \n",im->second.pt,tan(im->second.phi));
+	     DEBUG_PRINT(logFile_,"++++++ missed MC Track %f %f \n",im->second.pt,tan(im->second.phi));
 	   }
 	   
        }
    }
 
- printf("Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
+ DEBUG_PRINT(logFile_,"Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
 }
 
 void L1TrackTrigger::event_hough(DCHistogramHandler* d)
@@ -288,7 +288,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
   tk_asso.clear();
   tk_fake.clear();
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
-  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,160);
+  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,192); //160 avant
   for (std::map<uint32_t,stub_t>::iterator is=stubmap.begin();is!=stubmap.end();is++)
     {
       //htl_->fill(is->second.x,is->second.y);
@@ -304,7 +304,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
   htl_->findMaximumBins(hbins,4,&vids);
   //htl_->findThresholdBins(hbins,9);
   if (htl_->getVoteMax()<4) return;
-  printf("SIZE OF HITS %d\n",(int) vids.size());
+  DEBUG_PRINT(logFile_,"SIZE OF HITS %d\n",(int) vids.size());
   //@ htl_->draw(d);
 
   for (uint32_t i=0;i<htl_->getNbinTheta();i++)
@@ -362,7 +362,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
 	if (nafter<3) continue;
 	
 	
-	//printf("BIn selected %d,%d  counts %d %f\n",i,j,(int) vid.size(),pth);
+	//DEBUG_PRINT(logFile_,"BIn selected %d,%d  counts %d %f\n",i,j,(int) vid.size(),pth);
 	uint32_t nbinf=64;
 	// <5,5-10,10-30,>30
 	if (pth<3) nbinf=64;
@@ -370,9 +370,11 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
 	if (pth>=5  && pth<15) nbinf=192;
 	if (pth>=15 && pth<=30) nbinf=256;
 	if (pth>=30 ) nbinf=384;
+
 	nbinf /=2; //2 avant
+	float ndel=1.5; // 2 avant
 	//HOUGHLOCAL *htp = new HOUGHLOCAL(htl_->getTheta(i)-2*htl_->getThetaBin(),htl_->getTheta(i)+2*htl_->getThetaBin(),htl_->getR(j)-2*htl_->getRBin(),htl_->getR(j)+2*htl_->getRBin(),nbinf,nbinf);
-	htp_->initialise(htl_->getTheta(i)-2*htl_->getThetaBin(),htl_->getTheta(i)+2*htl_->getThetaBin(),htl_->getR(j)-2*htl_->getRBin(),htl_->getR(j)+2*htl_->getRBin(),nbinf,nbinf);
+	htp_->initialise(htl_->getTheta(i)-ndel*htl_->getThetaBin(),htl_->getTheta(i)+ndel*htl_->getThetaBin(),htl_->getR(j)-ndel*htl_->getRBin(),htl_->getR(j)+ndel*htl_->getRBin(),nbinf,nbinf);
 	htp_->clear();
 	for ( std::vector<uint32_t>::iterator itd=vid.begin();itd!=vid.end();itd++)
 	  {
@@ -455,7 +457,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
   /*
     for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
     {
-    printf("Bins found %f %f => \n",(*ihb).first,(*ihb).second);
+    DEBUG_PRINT(logFile_,"Bins found %f %f => \n",(*ihb).first,(*ihb).second);
     double ith=(*ihb).first;
     double ir=(*ihb).second;
 				
@@ -496,9 +498,13 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
   //delete htl;
 }
 
-void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
+void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax,std::string sbase)
 {
-	
+  
+   
+   std::string logfilename=sbase+".log";
+   logFile_ = fopen (logfilename.c_str() , "w");
+
   cout<<"On rentre"<<endl;
   cout<<"DCHist created"<<endl;
   htl_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
@@ -720,391 +726,397 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax)
     n_entries_MC=nevmax;
   uint32_t nfaketot=0,nfaketot1=0;
   time_t t0=time(0);
-  for (int j=0;j<n_entries_MC;++j){
-    PATT->GetEntry(j); // Load entries
-    houghc.clear();
+  DEBUG_PRINT(logFile_,"The tree has %d entries \n",n_entries_MC);
+  for (int j=0;j<n_entries_MC;++j)
+    {
+      PATT->GetEntry(j); // Load entries
+      houghc.clear();
 
-    if(nb_patterns>0){//On a au moins un pattern actif
-      //if (nb_tracks!=1) continue;
-      //if (track_pt[0]>25) continue;
-      time_t t1=time(0);
-      cout<<nb_patterns<<"New EVENT pattern(s) in evt "<<event_id<<" (index "<<j<<")"<<endl;
-      if (j%5==0) std::cout<<t1-t0<<"s Rate "<<j*1./(t1-t0)<<endl;
-      hnpatterns->Fill(nb_patterns*1.);
-      hitIndex=0;
+      if(nb_patterns>0){//On a au moins un pattern actif
+	//if (nb_tracks!=1) continue;
+	//if (track_pt[0]>25) continue;
+	time_t t1=time(0);
+	cout<<nb_patterns<<"New EVENT pattern(s) in evt "<<event_id<<" (index "<<j<<")"<<endl;
+	if (j%5==0) std::cout<<t1-t0<<"s Rate "<<j*1./(t1-t0)<<endl;
+	hnpatterns->Fill(nb_patterns*1.);
+	hitIndex=0;
 			
-      //boucle sur les patterns actifs de l'evenement
-      //memset(xpos,0,1000*sizeof(float));
-      //memset(ypos,0,1000*sizeof(float));
-      uint32_t hitf=0;
-      uint32_t hitl=0;
-      uint32_t nfake=0;
-      // FInd all MC tracks with >=3 stubs in a given patterns
-      mcmap.clear();
-      stubmap.clear();
-      patternvec.clear();
-      TH1F* hnfake=(TH1F*)rootHandler_.GetTH1("nfake");
-      TH2F* hmiss2=(TH2F*) rootHandler_.GetTH2("Miss2");
-      TH2F* hfound2=(TH2F*) rootHandler_.GetTH2("Found2");
+	//boucle sur les patterns actifs de l'evenement
+	//memset(xpos,0,1000*sizeof(float));
+	//memset(ypos,0,1000*sizeof(float));
+	uint32_t hitf=0;
+	uint32_t hitl=0;
+	uint32_t nfake=0;
+	// FInd all MC tracks with >=3 stubs in a given patterns
+	mcmap.clear();
+	stubmap.clear();
+	patternvec.clear();
+	TH1F* hnfake=(TH1F*)rootHandler_.GetTH1("nfake");
+	TH2F* hmiss2=(TH2F*) rootHandler_.GetTH2("Miss2");
+	TH2F* hfound2=(TH2F*) rootHandler_.GetTH2("Found2");
  
-      for(int k=0;k<nb_patterns;k++){
-        //if (nbHitPerPattern[k]<5) continue;
+	for(int k=0;k<nb_patterns;k++){
+	  //if (nbHitPerPattern[k]<5) continue;
 
-	// Clear stubs count
+	  // Clear stubs count
 
-	pattern_t pats;
-        for(int m=0;m<nbHitPerPattern[k];m++)
-	  {
-	    //cout<<"Layer "<<(int)hit_layer[hitIndex]<<" ladder "<<(int)hit_ladder[hitIndex]<<" Mod "<<(int)hit_zPos[hitIndex]
-	    // <<" Segment "<<(int)hit_segment[hitIndex]<<" strip "<<hit_strip[hitIndex]<<" (tp : "<<hit_tp[hitIndex]<<" PT : "<<hit_ptGEN[hitIndex]<<" GeV ETA : "
-	    // <<hit_etaGEN[hitIndex]<<" PHI : "<<hit_phiGEN[hitIndex]<<" X:"<<hit_x[hitIndex]<<" Y:"<<hit_y[hitIndex]<<" Z:"<<hit_z[hitIndex]<<")"<<endl;
-	    uint32_t sid=STUBID(hit_layer[hitIndex],hit_ladder[hitIndex],hit_zPos[hitIndex],hit_segment[hitIndex],hit_strip[hitIndex]);
-	    std::map<uint32_t,stub_t>::iterator is=stubmap.find(sid);
-	    if (is==stubmap.end())
-	      {
-	       
-		stub_t s;
-		s.id=sid;
-		s.x=hit_x[hitIndex];
-		s.y=hit_y[hitIndex];
-		s.z=hit_z[hitIndex];
-		s.r2=s.x*s.x+s.y*s.y;;
-		s.xp=s.x/s.r2;
-		s.yp=s.y/s.r2;
-		s.tp=hit_tp[hitIndex];
-		
-		//	printf("%d %d %f \n",stubmap.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
-		std::pair<uint32_t,stub_t> p(sid,s);
-		stubmap.insert(p);
-	      }
-	    std::map<int32_t,mctrack_t>::iterator im=mcmap.find(hit_tp[hitIndex]);
-	    if (mcmap.count(hit_tp[hitIndex])==0 && hit_tp[hitIndex]>=0)
-	      {
-		mctrack_t mct;
-		mct.id=hit_tp[hitIndex];
-		mct.phi=hit_phiGEN[hitIndex];
-		//if (mct.phi<0) mct.phi+=2*PI;
-		mct.pt=hit_ptGEN[hitIndex];
-		mct.z0=hit_Z0[hitIndex];
-		mct.eta=hit_etaGEN[hitIndex];
-		mct.nstubs=(1<<hit_layer[hitIndex]);
-		mct.maxstubs=1;
-		mct.valid=false;
-		mct.matches=0;
-		// printf("insert done %d %d \n", mct.id,mcmap.count(mct.id));
-		std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
-		mcmap.insert(mcp);
-
-	      }
-	    else
-	      if (im!=mcmap.end())
-		im->second.nstubs|=(1<<hit_layer[hitIndex]);
-	    pats.stubs_id.push_back(sid);
-	    hitIndex++;
-
-	  }
-	
-	//printf("Pattern %d Nb stubs %d Total stubs %d Total MC %d \n",k,pats.stubs_id.size(),stubmap.size(),mcmap.size());
-	patternvec.push_back(pats);
-	//getchar();
-      }
-
-      //for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-      //	im->second.nstubs=0;
-      
-      for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-	{
-
-
-	  uint8_t np=0;
-	  for (uint8_t ib=5;ib<=24;ib++)
-	    if ((im->second.nstubs>>ib)&1) np++;
-	
-	  if (im->second.pt<1.2) continue;	  
-	  if (np>=4 &&im->second.pt>2 ) 
+	  pattern_t pats;
+	  for(int m=0;m<nbHitPerPattern[k];m++)
 	    {
-	      printf("MC %d NSTUB %x %d PT %f   tg(phi) %f\n",im->second.id,im->second.nstubs,np,im->second.pt,tan(im->second.phi));
-	      if (np>im->second.maxstubs) 	im->second.maxstubs=np;
-	      if (im->second.valid)					
-		continue;
-	      else
+	      //cout<<"Layer "<<(int)hit_layer[hitIndex]<<" ladder "<<(int)hit_ladder[hitIndex]<<" Mod "<<(int)hit_zPos[hitIndex]
+	      // <<" Segment "<<(int)hit_segment[hitIndex]<<" strip "<<hit_strip[hitIndex]<<" (tp : "<<hit_tp[hitIndex]<<" PT : "<<hit_ptGEN[hitIndex]<<" GeV ETA : "
+	      // <<hit_etaGEN[hitIndex]<<" PHI : "<<hit_phiGEN[hitIndex]<<" X:"<<hit_x[hitIndex]<<" Y:"<<hit_y[hitIndex]<<" Z:"<<hit_z[hitIndex]<<")"<<endl;
+	      uint32_t sid=STUBID(hit_layer[hitIndex],hit_ladder[hitIndex],hit_zPos[hitIndex],hit_segment[hitIndex],hit_strip[hitIndex]);
+	      std::map<uint32_t,stub_t>::iterator is=stubmap.find(sid);
+	      if (is==stubmap.end())
 		{
-		  im->second.valid=true;
-		  hext2->Fill(im->second.pt,tan(im->second.phi));
+	       
+		  stub_t s;
+		  s.id=sid;
+		  s.x=hit_x[hitIndex];
+		  s.y=hit_y[hitIndex];
+		  s.z=hit_z[hitIndex];
+		  s.r2=s.x*s.x+s.y*s.y;;
+		  s.xp=s.x/s.r2;
+		  s.yp=s.y/s.r2;
+		  s.tp=hit_tp[hitIndex];
 		
-		  hptgen->Fill(log(im->second.pt));
-		  hphigen->Fill(tan(im->second.phi));
+		  //	DEBUG_PRINT(logFile_,"%d %d %f \n",stubmap.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+		  std::pair<uint32_t,stub_t> p(sid,s);
+		  stubmap.insert(p);
 		}
-	    
+	      std::map<int32_t,mctrack_t>::iterator im=mcmap.find(hit_tp[hitIndex]);
+	      if (mcmap.count(hit_tp[hitIndex])==0 && hit_tp[hitIndex]>=0)
+		{
+		  mctrack_t mct;
+		  mct.id=hit_tp[hitIndex];
+		  mct.phi=hit_phiGEN[hitIndex];
+		  //if (mct.phi<0) mct.phi+=2*PI;
+		  mct.pt=hit_ptGEN[hitIndex];
+		  mct.z0=hit_Z0[hitIndex];
+		  mct.eta=hit_etaGEN[hitIndex];
+		  mct.nstubs=(1<<hit_layer[hitIndex]);
+		  mct.maxstubs=1;
+		  mct.valid=false;
+		  mct.matches=0;
+		  // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,mcmap.count(mct.id));
+		  std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+		  mcmap.insert(mcp);
+
+		}
+	      else
+		if (im!=mcmap.end())
+		  im->second.nstubs|=(1<<hit_layer[hitIndex]);
+	      pats.stubs_id.push_back(sid);
+	      hitIndex++;
+
 	    }
+	
+	  //DEBUG_PRINT(logFile_,"Pattern %d Nb stubs %d Total stubs %d Total MC %d \n",k,pats.stubs_id.size(),stubmap.size(),mcmap.size());
+	  patternvec.push_back(pats);
+	  //getchar();
 	}
 
+	//for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+	//	im->second.nstubs=0;
       
-      uint32_t ngood=0;
-      for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-	if (im->second.valid) ngood++;
-      printf("MC map size %d Good %d \n",(int) mcmap.size(),ngood);
-      event_hough(&rootHandler_);
-      associate();
-      //fill_histos(&rootHandler_);
-      continue;
-      hntracks->Fill(ngood*1.);
-      hitIndex=0;
-      htl->clear();
-      for(int k=0;k<nb_patterns;k++){
+	for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+	  {
 
+
+	    uint8_t np=0;
+	    for (uint8_t ib=5;ib<=24;ib++)
+	      if ((im->second.nstubs>>ib)&1) np++;
 	
-	bool draw=true;
-	//draw=(j==13);
-        htl->clear();
-	//htr->clear();
-	// affichage du pattern
-	// for(int l=0;l<nb_layers;l++){
-	// cout<<sstrips[l][k]<<" ";
-	// }
-	//cout<<" in sector "<<printSector(sector_list[pattern_sector_id[k]])<<endl;
-	//cout<<nbHitPerPattern[k]<<" hits in this pattern :"<<k<<endl;
-	//affichage des stubs dans le pattern actif
-	hitf=hitIndex;
-	hitl=hitIndex+nbHitPerPattern[k];
-        counts.clear();
-	for(int m=0;m<nbHitPerPattern[k];m++)
-	  {
-	    // cout<<"Layer "<<(int)hit_layer[hitIndex]<<" ladder "<<(int)hit_ladder[hitIndex]<<" Mod "<<(int)hit_zPos[hitIndex]
-	    // <<" Segment "<<(int)hit_segment[hitIndex]<<" strip "<<hit_strip[hitIndex]<<" (tp : "<<hit_tp[hitIndex]<<" PT : "<<hit_ptGEN[hitIndex]<<" GeV ETA : "
-	    // <<hit_etaGEN[hitIndex]<<" PHI : "<<hit_phiGEN[hitIndex]<<" X:"<<hit_x[hitIndex]<<" Y:"<<hit_y[hitIndex]<<" Z:"<<hit_z[hitIndex]<<")"<<endl;
-					
-	    htl->fill(hit_x[hitIndex],hit_y[hitIndex]);
-	    //htr->fill(sqrt(hit_x[hitIndex]*hit_x[hitIndex]+hit_y[hitIndex]*hit_y[hitIndex]),hit_z[hitIndex]);
-	    /*
-	      std::map<uint32_t,uint32_t>::iterator itc=counts.find(hit_tp[hitIndex]);
-	      if (itc==counts.end())
+	    if (im->second.pt<1.2) continue;	  
+	    if (np>=4 &&im->second.pt>2 ) 
 	      {
-              std::pair<uint32_t,uint32_t> p(hit_tp[hitIndex],1);
-              counts.insert(p);
-	      }
-	      else
-	      {
-              itc->second++;
-	      }
-	    */
-	    hitIndex++;
-	  }
-	//if (k!=nb_patterns-1) continue;
-        uint32_t mcount=0,mindex=0;
-        /*
-	  for (std::map<uint32_t,uint32_t>::iterator itc=counts.begin();itc!=counts.end();itc++)
-          {
-	  if (itc->second>mcount)
-	  {
-	  mcount=itc->second;
-	  mindex=itc->first;
-	  }
-          } 
-	  //if (mcount<3) continue;
-	  for (uint32_t lidx=hitIndex-1;lidx>0;lidx--)
-	  if (hit_tp[lidx]==mindex)
-	  {
-	  mindex=lidx;break;
-	  }
-	*/  
-	//printf("%d ->%d === %f %f \n",mindex,mcount,hit_ptGEN[mindex],hit_phiGEN[mindex]);
-	//if (hit_ptGEN[mindex]>25) continue;
-	//if (hit_ptGEN[mindex]<2) continue;
-	
-	if (hnstub==NULL)
-	  {
-	   
-	   
-	  }
-	
-	//hncout->Fill(mcount*1.);
-	hnstub->Fill(nbHitPerPattern[k]);
-	//getchar();
-	// for(int k=0;k<nb_tracks;k++){
-	// cout<<"Track "<<k<<" : PT="<<track_pt[k]<<" PHI0="<<track_phi[k]<<" ETA="<<track_eta[k]<<" D0="<<track_d0[k]<<" Z0="<<track_z0[k]<<endl;
-	// }
-	//cout<<endl;
-	uint32_t votemin=3;
-	if (nbHitPerPattern[k]>7) votemin=4;
-	if (nbHitPerPattern[k]>8) votemin=5;
-	std::vector < std::pair<double,double> > hbins; hbins.clear();
-	uint32_t votemax=htl->getVoteMax()-1;
-	//if (htl->getVoteMax()>6) votemax=5;
-	htl->findMaximumBins(hbins,TMath::Max(votemin,votemax));
-	//htl->findThresholdBins(hbins,9);
-	if (htl->getVoteMax()<3) continue;
-	for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
-	  {
-	    // printf("Bins found %f %f => \n",(*ihb).first,(*ihb).second);
-	  }
-	if (draw) htl->draw(&rootHandler_);
-	// std::vector < std::pair<double,double> > hrbins; hrbins.clear();
-	// htr->findMaximumBins(hrbins,3);//TMath::Max((uint32_t)3, (htr->getVoteMax()-1)));	
-	// htr->draw(&rootHandler_,&hrbins);
-	//if (nbHitPerPattern[k]>0) continue;
-
-	for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
-	  {
-	    double ith=(*ihb).first;
-	    double ir=(*ihb).second;
-				
-				
-				
-	    //printf("Bin  studied %f %f %f %f => \n",ith-2*htl->getThetaBin(),ith+2*htl->getThetaBin(),ir-2*htl->getRBin(),ir+2*htl->getRBin());
-	    //HOUGHLOCAL::PrintConvert(ith,ir);
-	    double R=1./2./TMath::Abs(ir);
-	    double pth=0.3*3.8*R/100.;
-	    uint32_t nbinf=64;
-	    if (pth<5) nbinf=128;
-	    if (pth>=5 && pth<10) nbinf=192;
-	    if (pth>=10  && pth<30) nbinf=256;
-	    if (pth>=30) nbinf=320;
-
-	    HOUGHLOCAL *htp = new HOUGHLOCAL(ith-2*htl->getThetaBin(),ith+2*htl->getThetaBin(),ir-2*htl->getRBin(),ir+2*htl->getRBin(),nbinf,nbinf);
-				
-	    htp->clear();
-	    //cout<<hitIndex<<" Hits found "<<endl;
-	    //hitf=0;
-	    for (int is=hitf;is<hitl;is++)
-	      htp->fill(hit_x[is],hit_y[is]);
-
-	    std::vector< std::pair<double,double> > hfbins;hfbins.clear();
-	    //std::cout<<"OHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE "<<htp->getVoteMax()<<std::endl;
-	    
-	    if (htp->getVoteMax()<votemin) {delete htp;continue;}
-	    //if (draw) htp->draw(&rootHandler_);
-	    htp->findMaximumBins(hfbins,TMath::Max(htp->getVoteMax()-1,votemin));
-	    if (draw) htp->draw(&rootHandler_,&hfbins);
-	    if(hfbins.size()>0)
-	      {
-		for (std::vector < std::pair<double,double> >::iterator ihbp=hfbins.begin();ihbp<hfbins.end();ihbp++)
+		DEBUG_PRINT(logFile_,"MC %d NSTUB %x %d PT %f   tg(phi) %f\n",im->second.id,im->second.nstubs,np,im->second.pt,tan(im->second.phi));
+		if (np>im->second.maxstubs) 	im->second.maxstubs=np;
+		if (im->second.valid)					
+		  continue;
+		else
 		  {
-		    //printf(" Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
-		    double theta=(*ihbp).first;
-		    double r=(*ihbp).second;
+		    im->second.valid=true;
+		    hext2->Fill(im->second.pt,tan(im->second.phi));
 		
-		    double a=-1./tan(theta);
-		    double b=r/sin(theta);
+		    hptgen->Fill(log(im->second.pt));
+		    hphigen->Fill(tan(im->second.phi));
+		  }
+	    
+	      }
+	  }
+
+      
+	uint32_t ngood=0;
+	for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+	  if (im->second.valid) ngood++;
+	DEBUG_PRINT(logFile_,"MC map size %d Good %d \n",(int) mcmap.size(),ngood);
+	event_hough(&rootHandler_);
+	associate();
+	//fill_histos(&rootHandler_);
+	continue;
+	hntracks->Fill(ngood*1.);
+	hitIndex=0;
+	htl->clear();
+	for(int k=0;k<nb_patterns;k++){
+
+	
+	  bool draw=true;
+	  //draw=(j==13);
+	  htl->clear();
+	  //htr->clear();
+	  // affichage du pattern
+	  // for(int l=0;l<nb_layers;l++){
+	  // cout<<sstrips[l][k]<<" ";
+	  // }
+	  //cout<<" in sector "<<printSector(sector_list[pattern_sector_id[k]])<<endl;
+	  //cout<<nbHitPerPattern[k]<<" hits in this pattern :"<<k<<endl;
+	  //affichage des stubs dans le pattern actif
+	  hitf=hitIndex;
+	  hitl=hitIndex+nbHitPerPattern[k];
+	  counts.clear();
+	  for(int m=0;m<nbHitPerPattern[k];m++)
+	    {
+	      // cout<<"Layer "<<(int)hit_layer[hitIndex]<<" ladder "<<(int)hit_ladder[hitIndex]<<" Mod "<<(int)hit_zPos[hitIndex]
+	      // <<" Segment "<<(int)hit_segment[hitIndex]<<" strip "<<hit_strip[hitIndex]<<" (tp : "<<hit_tp[hitIndex]<<" PT : "<<hit_ptGEN[hitIndex]<<" GeV ETA : "
+	      // <<hit_etaGEN[hitIndex]<<" PHI : "<<hit_phiGEN[hitIndex]<<" X:"<<hit_x[hitIndex]<<" Y:"<<hit_y[hitIndex]<<" Z:"<<hit_z[hitIndex]<<")"<<endl;
+					
+	      htl->fill(hit_x[hitIndex],hit_y[hitIndex]);
+	      //htr->fill(sqrt(hit_x[hitIndex]*hit_x[hitIndex]+hit_y[hitIndex]*hit_y[hitIndex]),hit_z[hitIndex]);
+	      /*
+		std::map<uint32_t,uint32_t>::iterator itc=counts.find(hit_tp[hitIndex]);
+		if (itc==counts.end())
+		{
+		std::pair<uint32_t,uint32_t> p(hit_tp[hitIndex],1);
+		counts.insert(p);
+		}
+		else
+		{
+		itc->second++;
+		}
+	      */
+	      hitIndex++;
+	    }
+	  //if (k!=nb_patterns-1) continue;
+	  uint32_t mcount=0,mindex=0;
+	  /*
+	    for (std::map<uint32_t,uint32_t>::iterator itc=counts.begin();itc!=counts.end();itc++)
+	    {
+	    if (itc->second>mcount)
+	    {
+	    mcount=itc->second;
+	    mindex=itc->first;
+	    }
+	    } 
+	    //if (mcount<3) continue;
+	    for (uint32_t lidx=hitIndex-1;lidx>0;lidx--)
+	    if (hit_tp[lidx]==mindex)
+	    {
+	    mindex=lidx;break;
+	    }
+	  */  
+	  //DEBUG_PRINT(logFile_,"%d ->%d === %f %f \n",mindex,mcount,hit_ptGEN[mindex],hit_phiGEN[mindex]);
+	  //if (hit_ptGEN[mindex]>25) continue;
+	  //if (hit_ptGEN[mindex]<2) continue;
+	
+	  if (hnstub==NULL)
+	    {
+	   
+	   
+	    }
+	
+	  //hncout->Fill(mcount*1.);
+	  hnstub->Fill(nbHitPerPattern[k]);
+	  //getchar();
+	  // for(int k=0;k<nb_tracks;k++){
+	  // cout<<"Track "<<k<<" : PT="<<track_pt[k]<<" PHI0="<<track_phi[k]<<" ETA="<<track_eta[k]<<" D0="<<track_d0[k]<<" Z0="<<track_z0[k]<<endl;
+	  // }
+	  //cout<<endl;
+	  uint32_t votemin=3;
+	  if (nbHitPerPattern[k]>7) votemin=4;
+	  if (nbHitPerPattern[k]>8) votemin=5;
+	  std::vector < std::pair<double,double> > hbins; hbins.clear();
+	  uint32_t votemax=htl->getVoteMax()-1;
+	  //if (htl->getVoteMax()>6) votemax=5;
+	  htl->findMaximumBins(hbins,TMath::Max(votemin,votemax));
+	  //htl->findThresholdBins(hbins,9);
+	  if (htl->getVoteMax()<3) continue;
+	  for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
+	    {
+	      // DEBUG_PRINT(logFile_,"Bins found %f %f => \n",(*ihb).first,(*ihb).second);
+	    }
+	  if (draw) htl->draw(&rootHandler_);
+	  // std::vector < std::pair<double,double> > hrbins; hrbins.clear();
+	  // htr->findMaximumBins(hrbins,3);//TMath::Max((uint32_t)3, (htr->getVoteMax()-1)));	
+	  // htr->draw(&rootHandler_,&hrbins);
+	  //if (nbHitPerPattern[k]>0) continue;
+
+	  for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
+	    {
+	      double ith=(*ihb).first;
+	      double ir=(*ihb).second;
+				
+				
+				
+	      //DEBUG_PRINT(logFile_,"Bin  studied %f %f %f %f => \n",ith-2*htl->getThetaBin(),ith+2*htl->getThetaBin(),ir-2*htl->getRBin(),ir+2*htl->getRBin());
+	      //HOUGHLOCAL::PrintConvert(ith,ir);
+	      double R=1./2./TMath::Abs(ir);
+	      double pth=0.3*3.8*R/100.;
+	      uint32_t nbinf=64;
+	      if (pth<5) nbinf=128;
+	      if (pth>=5 && pth<10) nbinf=192;
+	      if (pth>=10  && pth<30) nbinf=256;
+	      if (pth>=30) nbinf=320;
+
+	      HOUGHLOCAL *htp = new HOUGHLOCAL(ith-2*htl->getThetaBin(),ith+2*htl->getThetaBin(),ir-2*htl->getRBin(),ir+2*htl->getRBin(),nbinf,nbinf);
+				
+	      htp->clear();
+	      //cout<<hitIndex<<" Hits found "<<endl;
+	      //hitf=0;
+	      for (int is=hitf;is<hitl;is++)
+		htp->fill(hit_x[is],hit_y[is]);
+
+	      std::vector< std::pair<double,double> > hfbins;hfbins.clear();
+	      //std::cout<<"OHEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE "<<htp->getVoteMax()<<std::endl;
+	    
+	      if (htp->getVoteMax()<votemin) {delete htp;continue;}
+	      //if (draw) htp->draw(&rootHandler_);
+	      htp->findMaximumBins(hfbins,TMath::Max(htp->getVoteMax()-1,votemin));
+	      if (draw) htp->draw(&rootHandler_,&hfbins);
+	      if(hfbins.size()>0)
+		{
+		  for (std::vector < std::pair<double,double> >::iterator ihbp=hfbins.begin();ihbp<hfbins.end();ihbp++)
+		    {
+		      //DEBUG_PRINT(logFile_," Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
+		      double theta=(*ihbp).first;
+		      double r=(*ihbp).second;
+		
+		      double a=-1./tan(theta);
+		      double b=r/sin(theta);
 		
 		
-		    //
-		    double R=1./2./TMath::Abs(r);
-		    double pth=0.3*3.8*R/100.;
-		    double phih=atan(a);
-		    if (pth<2.) continue;
-		    hpthough->Fill(pth);
-		    hphihough->Fill(a);
-		    double dphmin=9999.;double dptmin=9999.,errmin=9999.;
-		    std::map<int32_t,mctrack_t>::iterator ismin=mcmap.end();
+		      //
+		      double R=1./2./TMath::Abs(r);
+		      double pth=0.3*3.8*R/100.;
+		      double phih=atan(a);
+		      if (pth<2.) continue;
+		      hpthough->Fill(pth);
+		      hphihough->Fill(a);
+		      double dphmin=9999.;double dptmin=9999.,errmin=9999.;
+		      std::map<int32_t,mctrack_t>::iterator ismin=mcmap.end();
           
 		   
 					
-		    for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-		      if ( im->second.valid) 
-			{
+		      for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+			if ( im->second.valid) 
+			  {
 							
 
-			  if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))>1*3E-4) continue;
-			  //if (abs((im->second.pt-pth)/pth)>0.25) continue;
-			  // if (abs((im->second.phi-phih))>0.06) continue;
-			  double dph=im->second.phi-phih;
-			  double dpt=im->second.pt-pth;
-			  //if (abs(dpt)<=dptmin) dptmin=abs(dpt);
-			  //if (abs(dph)<=dphmin)	dphmin=abs(dph);
+			    if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))>1*3E-4) continue;
+			    //if (abs((im->second.pt-pth)/pth)>0.25) continue;
+			    // if (abs((im->second.phi-phih))>0.06) continue;
+			    double dph=im->second.phi-phih;
+			    double dpt=im->second.pt-pth;
+			    //if (abs(dpt)<=dptmin) dptmin=abs(dpt);
+			    //if (abs(dph)<=dphmin)	dphmin=abs(dph);
 
-			  //if (abs(dph)>4*5E-3) continue;
-			  //if (abs(dpt)/pth>4*6E-2) continue;
+			    //if (abs(dph)>4*5E-3) continue;
+			    //if (abs(dpt)/pth>4*6E-2) continue;
 				
-			  if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))<errmin)
-			    {
-			      dptmin=abs(dpt);
-			      dphmin=abs(dph);
-			      errmin=abs((im->second.pt-pth)/pth*(im->second.phi-phih));
-			      ismin=im;
-			    }
+			    if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))<errmin)
+			      {
+				dptmin=abs(dpt);
+				dphmin=abs(dph);
+				errmin=abs((im->second.pt-pth)/pth*(im->second.phi-phih));
+				ismin=im;
+			      }
 	
-			}
-		    //printf("Valid Track %d %f %f \n",im->second.id,im->second.pt,im->second.phi);
-    
-		    if (ismin==mcmap.end()) {nfake++;
-		      //printf("#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
-		      nfaketot1++;
-		      hfake2->Fill(pth,phih);
-		      //hfake2e->Fill(dptmin/pth,dphmin);
-		      double distm=99999.;
-		      for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-			if (im->second.valid) 
-			  {
-			    //printf("\t %f %f \n",(im->second.pt-pth)/pth,(im->second.phi-phih));
-			    if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))<distm) distm=abs((im->second.pt-pth)/pth*(im->second.phi-phih));
 			  }
-		      herrors->Fill(distm);
+		      //DEBUG_PRINT(logFile_,"Valid Track %d %f %f \n",im->second.id,im->second.pt,im->second.phi);
+    
+		      if (ismin==mcmap.end()) {nfake++;
+			//DEBUG_PRINT(logFile_,"#hits %d Fake Track %f %f et %f %f \n",nbHitPerPattern[k],pth,phih,dptmin,dphmin);
+			nfaketot1++;
+			hfake2->Fill(pth,phih);
+			//hfake2e->Fill(dptmin/pth,dphmin);
+			double distm=99999.;
+			for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+			  if (im->second.valid) 
+			    {
+			      //DEBUG_PRINT(logFile_,"\t %f %f \n",(im->second.pt-pth)/pth,(im->second.phi-phih));
+			      if (abs((im->second.pt-pth)/pth*(im->second.phi-phih))<distm) distm=abs((im->second.pt-pth)/pth*(im->second.phi-phih));
+			    }
+			herrors->Fill(distm);
 
-		      mctrack_t t;
-		      t.pt=pth;
-		      t.phi=phih;
-		      houghc.push_back(t);
-		      //getchar();
-		      continue;}
-		    //printf("Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
-		    hdpt->Fill((ismin->second.pt-pth)/pth);
-		    hdphi->Fill(ismin->second.phi-phih);
-		    hpt2->Fill(ismin->second.pt,pth);
-		    hphi2->Fill(ismin->second.phi,phih);
-		    hpt2p->Fill(ismin->second.pt,pth);
-		    hphi2p->Fill(ismin->second.phi,phih);
-		    hfound2->Fill(ismin->second.pt,ismin->second.phi);
-		    hfound2e->Fill((ismin->second.pt-pth)/pth,ismin->second.phi-phih);
-		    ismin->second.matches++;
-		  }
-		if (draw) htp->draw(&rootHandler_,&hfbins);
-	      }
-	    delete htp;
-	  }
-	/*
+			mctrack_t t;
+			t.pt=pth;
+			t.phi=phih;
+			houghc.push_back(t);
+			//getchar();
+			continue;}
+		      //DEBUG_PRINT(logFile_,"Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
+		      hdpt->Fill((ismin->second.pt-pth)/pth);
+		      hdphi->Fill(ismin->second.phi-phih);
+		      hpt2->Fill(ismin->second.pt,pth);
+		      hphi2->Fill(ismin->second.phi,phih);
+		      hpt2p->Fill(ismin->second.pt,pth);
+		      hphi2p->Fill(ismin->second.phi,phih);
+		      hfound2->Fill(ismin->second.pt,ismin->second.phi);
+		      hfound2e->Fill((ismin->second.pt-pth)/pth,ismin->second.phi-phih);
+		      ismin->second.matches++;
+		    }
+		  if (draw) htp->draw(&rootHandler_,&hfbins);
+		}
+	      delete htp;
+	    }
+	  /*
 				
-	 */
+	   */
 			
-      }
-      uint32_t nmisses=0;
-      for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
-	if (im->second.valid)
-          {          
-            printf("Valid Track %d %f %f %f %f matches %d \n",im->second.id,im->second.pt,im->second.phi,im->second.z0,im->second.eta,im->second.matches);
-	    hncout->Fill(im->second.maxstubs*1.);
-	    hnmatches->Fill(im->second.matches*1.);
-	    if (im->second.matches==0)
-	      {
-		hmiss2->Fill(im->second.pt,im->second.phi);
-		// for (std::vector<mctrack_t>::iterator ih=houghc.begin();ih!=houghc.end();ih++)
-		// {
-		// printf("Fake %f %f distance %f %f \n",ih->pt,ih->phi,im->second.pt-ih->pt,im->second.phi-ih->phi);
-		// }
-		//getchar();
-		nmisses++;
-	      }
-				
-				
-				
-	  }
-      nfaketot+=nfake;
-      printf("Number of fake %d  %d %d\n",nfake,nfaketot,nfaketot1); 
-      //      getchar();
-      if (nfake!=0)hnfake->Fill(nfake*1.);
-      hnmisses->Fill(nmisses*1.);
-      //getchar();
-      if (nfake>40)
-	{
-	  printf("LARGE %d \n",j);
-	  //getchar();
 	}
-    }
+	uint32_t nmisses=0;
+	for (std::map<int32_t,mctrack_t>::iterator im=mcmap.begin();im!=mcmap.end();im++)
+	  if (im->second.valid)
+	    {          
+	      DEBUG_PRINT(logFile_,"Valid Track %d %f %f %f %f matches %d \n",im->second.id,im->second.pt,im->second.phi,im->second.z0,im->second.eta,im->second.matches);
+	      hncout->Fill(im->second.maxstubs*1.);
+	      hnmatches->Fill(im->second.matches*1.);
+	      if (im->second.matches==0)
+		{
+		  hmiss2->Fill(im->second.pt,im->second.phi);
+		  // for (std::vector<mctrack_t>::iterator ih=houghc.begin();ih!=houghc.end();ih++)
+		  // {
+		  // DEBUG_PRINT(logFile_,"Fake %f %f distance %f %f \n",ih->pt,ih->phi,im->second.pt-ih->pt,im->second.phi-ih->phi);
+		  // }
+		  //getchar();
+		  nmisses++;
+		}
+				
+				
+				
+	    }
+	nfaketot+=nfake;
+	DEBUG_PRINT(logFile_,"Number of fake %d  %d %d\n",nfake,nfaketot,nfaketot1); 
+	//      getchar();
+	if (nfake!=0)hnfake->Fill(nfake*1.);
+	hnmisses->Fill(nmisses*1.);
+	//getchar();
+	if (nfake>40)
+	  {
+	    DEBUG_PRINT(logFile_,"LARGE %d \n",j);
+	    //getchar();
+	  }
+      }
 		
-  }
+    }
   delete PATT;
-  rootHandler_.writeHistograms("toto.root");
-	
+
+ INFO_PRINT(logFile_,"Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
+
+  std::string rfile=sbase+"_histos.root";
+  rootHandler_.writeHistograms(rfile);
+  exit(0);
 }
 
 void L1TrackTrigger::Loop(TApplication* theApp)
@@ -1159,7 +1171,7 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 	if (pt>Ptmax && pt>1.5) Ptmin=pt;
 	if ((*STUB_x)[is]<0) continue;
 	if ((*STUB_y)[is]<0) continue;
-	printf("%f %f %f \n",pt,(*STUB_pt)[is],(*STUB_deltas)[is]);
+	DEBUG_PRINT(logFile_,"%f %f %f \n",pt,(*STUB_pt)[is],(*STUB_deltas)[is]);
 			
 	htl->fill((*STUB_x)[is],(*STUB_y)[is]);
       }
@@ -1171,14 +1183,14 @@ void L1TrackTrigger::Loop(TApplication* theApp)
     htl->findMaxima(hbins,(uint32_t) (htl->getVoteMax()-1));
     for (std::vector < std::pair<uint32_t,uint32_t> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
       {
-	printf("Bin %d %d => %d \n",(*ihb).first,(*ihb).second,htl->getValue((*ihb).first,(*ihb).second));
+	DEBUG_PRINT(logFile_,"Bin %d %d => %d \n",(*ihb).first,(*ihb).second,htl->getValue((*ihb).first,(*ihb).second));
       }
     htl->draw(&rootHandler_);
     for (std::vector < std::pair<uint32_t,uint32_t> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
       {
 	uint32_t ith=(*ihb).first;
 	uint32_t ir=(*ihb).second;
-	printf("Bin  studied %d %d => %d  new bin %f %f %f %f \n",ith,ir,htl->getValue(ith,ir),htl->getTheta(ith-1),htl->getTheta(ith+2),htl->getR(ir-1),htl->getR(ir+2));
+	DEBUG_PRINT(logFile_,"Bin  studied %d %d => %d  new bin %f %f %f %f \n",ith,ir,htl->getValue(ith,ir),htl->getTheta(ith-1),htl->getTheta(ith+2),htl->getR(ir-1),htl->getR(ir+2));
 	HOUGHLOCAL htp(htl->getTheta(ith-1),htl->getTheta(ith+2),htl->getR(ir-1),htl->getR(ir+2),64,64);
 	htp.clear();
 	//htp.fill(&allpoints_);
@@ -1188,7 +1200,7 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 	//htp.findMaxima(hpbins,1);
 	//for (std::vector < std::pair<uint32_t,uint32_t> >::iterator ihbp=hpbins.begin();ihbp<hpbins.end();ihbp++)
 	//{
-	//printf("Bin %d %d => %d \n",(*ihbp).first,(*ihbp).second,htp.getValue((*ihbp).first,(*ihbp).second));
+	//DEBUG_PRINT(logFile_,"Bin %d %d => %d \n",(*ihbp).first,(*ihbp).second,htp.getValue((*ihbp).first,(*ihbp).second));
 	//	}
 	//htp.draw(&rootHandler_,&hpbins);
 	std::vector< std::pair<double,double> > hfbins;hfbins.clear();
@@ -1196,7 +1208,7 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 			
 	for (std::vector < std::pair<double,double> >::iterator ihbp=hfbins.begin();ihbp<hfbins.end();ihbp++)
 	  {
-	    printf(" Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
+	    DEBUG_PRINT(logFile_," Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
 	  }
 	htp.draw(&rootHandler_,&hfbins);
       }
@@ -1204,11 +1216,11 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 #endif
 
     std::vector < std::pair<double,double> > hbins; hbins.clear();
-    printf("Maximal vote %d \n",htl->getVoteMax());
+    DEBUG_PRINT(logFile_,"Maximal vote %d \n",htl->getVoteMax());
     htl->findMaximumBins(hbins,TMath::Max((uint32_t)5, (htl->getVoteMax()-3)));
     for (std::vector < std::pair<double,double> >::iterator ihb=hbins.begin();ihb<hbins.end();ihb++)
       {
-	printf("Bin %f %f => \n",(*ihb).first,(*ihb).second);
+	DEBUG_PRINT(logFile_,"Bin %f %f => \n",(*ihb).first,(*ihb).second);
       }
     htl->draw(&rootHandler_);
 			
@@ -1219,7 +1231,7 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 				
 				
 				
-	//printf("Bin  studied %f %f => \n",ith,ir);
+	//DEBUG_PRINT(logFile_,"Bin  studied %f %f => \n",ith,ir);
 	HOUGHLOCAL::PrintConvert(ith,ir);
 			
 	HOUGHLOCAL *htp = new HOUGHLOCAL(ith-htl->getThetaBin(),ith+htl->getThetaBin(),ir-htl->getRBin(),ir+htl->getRBin(),32,32);
@@ -1241,7 +1253,7 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 	  {
 	    for (std::vector < std::pair<double,double> >::iterator ihbp=hfbins.begin();ihbp<hfbins.end();ihbp++)
 	      {
-		printf(" Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
+		DEBUG_PRINT(logFile_," Track ===> Theta  %f r %f \n",(*ihbp).first,(*ihbp).second);
 	      }
 	    htp->draw(&rootHandler_,&hfbins);
 	  }

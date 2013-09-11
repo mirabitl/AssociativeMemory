@@ -7,7 +7,7 @@
 
 #ifndef L1TrackTrigger_h
 #define L1TrackTrigger_h
-
+#include <stdio.h>
 #include <TROOT.h>
 #include <TChain.h>
 #include <TFile.h>
@@ -23,6 +23,24 @@
 #define HOUGHLOCAL HoughLocal1
 #include "HoughLocal1.h"
 #endif
+
+
+
+#define INFO_PRINT_ENABLED 1
+#if DEBUG_PRINT_ENABLED
+#define INFO_PRINT_ENABLED 1
+#define DEBUG_PRINT fprintf
+#else
+#define DEBUG_PRINT(format, args...) ((void)0)
+#endif
+#if INFO_PRINT_ENABLED
+#define INFO_PRINT fprintf
+#else
+#define INFO_PRINT(format, args...) ((void)0)
+#endif
+
+
+
 using namespace std;
 // Fixed size dimensions of array or collections stored in the TTree if any.
 
@@ -122,7 +140,7 @@ class L1TrackTrigger {
   L1TrackTrigger(TTree *tree);
   L1TrackTrigger(){;}
 	 
-  void do_ana(std::string filename,uint32_t nevmax=0);
+  void do_ana(std::string filename,uint32_t nevmax=0,std::string sbase="toto");
   void event_hough(DCHistogramHandler* d);
   void fill_histos(DCHistogramHandler* d);
   void associate();
@@ -139,6 +157,7 @@ class L1TrackTrigger {
   HOUGHLOCAL* htl_;
   HOUGHLOCAL* htp_;
   uint32_t ngoodmc_,nmiss_,nfake_;
+  FILE* logFile_;
 };
 
 #endif

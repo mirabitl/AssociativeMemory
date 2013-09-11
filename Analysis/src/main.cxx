@@ -13,7 +13,7 @@
 std::string filename;
 void workerFunc(TApplication* ta)  
 {  
-  boost::posix_time::seconds workTime(3);  
+  //boost::posix_time::seconds workTime(3);  
        
   std::cout << "Worker: running" << std::endl;  
   // Pretend to do something useful...  
@@ -52,22 +52,28 @@ void analysis(TApplication* theApp)
   //std::string fname="/home/mirabito/activePatternsBARREL_THRESH2_PU_5on6_hough.root";
   std::string fname="/home/laurent/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec40_ss32_cov40_4on6.root";
   std::cout<<filename<<std::endl;
-  l.do_ana(filename,0);
+
 #endif
 
 }
 int main(int argc, char* argv[])
 {
-  std::cout<<argc<<" "<<argv[1]<<std::endl;
-  std::string s(argv[1]);
-  filename=s;
+  if (argc<3) exit(-1);
+  std::cout<<"Directory "<<argv[1]<<std::endl;
+  std::cout<<"File Name "<<argv[2]<<std::endl;
+  std::string sdir(argv[1]);
+  std::string sfile(argv[2]);
+  filename=sdir+"/"+sfile+".root";
   std::cout<<filename<<std::endl;
 
   //ta=new 
   TApplication ta("THETEST",&argc,argv);
   //
 
+  L1TrackTrigger l(0);
+  l.do_ana(filename,0,sfile);
 
-  analysis(&ta);
+
+  //analysis(&ta);
   //workerThread.join();  
 }
