@@ -5,6 +5,7 @@
 #include "HoughCartesian.h"
 
 #include "HoughRZ.h"
+#include "Cuts.h"
 #include <bitset>
 
 #include <TH2.h>
@@ -174,7 +175,7 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	
       double pth=(*ihbp).pt;
       double phih=(*ihbp).phi;
-      if (pth<1.83) continue;
+      if (pth<PTCUT*0.9) continue;
       
       double dphmin=9999.;double dptmin=9999.,errmin=9999.;
       std::map<int32_t,mctrack_t>::iterator ismin=mcmap.end();
@@ -248,7 +249,7 @@ for (std::vector <mctrack_t>::iterator ihbp=houghc.begin();ihbp<houghc.end();ihb
 	      found=true;
 	      break;
 	  }
-	  if (!found && tk.pt>2.)
+	  if (!found && tk.pt>PTCUT)
 	    {
 		  tk_fake.push_back(tk);
 
@@ -288,7 +289,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
   tk_asso.clear();
   tk_fake.clear();
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
-  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,192); //160 avant
+  htl_->initialise(-PI/2,PI/2,-0.05,0.05,128,NBINRHO); //160 avant
   for (std::map<uint32_t,stub_t>::iterator is=stubmap.begin();is!=stubmap.end();is++)
     {
       //htl_->fill(is->second.x,is->second.y);
@@ -312,7 +313,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
       {
 	double R=1./2./TMath::Abs(htl_->getR(j));
 	double pth=0.3*3.8*R/100.;
-	if (pth<1.5) continue;
+	if (pth<PTCUT-0.5) continue;
 	std::vector<uint32_t> vid;vid.clear();
 	if (htl_->getHoughImage(i,j)<4) continue;
 
@@ -372,7 +373,7 @@ void L1TrackTrigger::event_hough(DCHistogramHandler* d)
 	if (pth>=30 ) nbinf=384;
 
 	nbinf /=2; //2 avant
-	float ndel=1.5; // 2 avant
+	float ndel=NDELTA; // 2 avant
 	//HOUGHLOCAL *htp = new HOUGHLOCAL(htl_->getTheta(i)-2*htl_->getThetaBin(),htl_->getTheta(i)+2*htl_->getThetaBin(),htl_->getR(j)-2*htl_->getRBin(),htl_->getR(j)+2*htl_->getRBin(),nbinf,nbinf);
 	htp_->initialise(htl_->getTheta(i)-ndel*htl_->getThetaBin(),htl_->getTheta(i)+ndel*htl_->getThetaBin(),htl_->getR(j)-ndel*htl_->getRBin(),htl_->getR(j)+ndel*htl_->getRBin(),nbinf,nbinf);
 	htp_->clear();
@@ -828,8 +829,8 @@ void L1TrackTrigger::do_ana(std::string fname,uint32_t nevmax,std::string sbase)
 	    for (uint8_t ib=5;ib<=24;ib++)
 	      if ((im->second.nstubs>>ib)&1) np++;
 	
-	    if (im->second.pt<1.2) continue;	  
-	    if (np>=4 &&im->second.pt>2 ) 
+	    if (im->second.pt<PTCUT-0.8) continue;	  
+	    if (np>=4 &&im->second.pt>PTCUT ) 
 	      {
 		DEBUG_PRINT(logFile_,"MC %d NSTUB %x %d PT %f   tg(phi) %f\n",im->second.id,im->second.nstubs,np,im->second.pt,tan(im->second.phi));
 		if (np>im->second.maxstubs) 	im->second.maxstubs=np;
@@ -1167,8 +1168,8 @@ void L1TrackTrigger::Loop(TApplication* theApp)
 	if (TMath::Abs((*STUB_pt)[is])<1.5) continue;
 	if (TMath::Abs((*STUB_deltas)[is])>2.) continue;
 	double pt=sqrt((*STUB_pxGEN)[is]*(*STUB_pxGEN)[is]+(*STUB_pyGEN)[is]*(*STUB_pyGEN)[is]);
-	if (pt<Ptmin && pt>1.5) Ptmin=pt;
-	if (pt>Ptmax && pt>1.5) Ptmin=pt;
+	if (pt<Ptmin && pt>PTCUT-0.5) Ptmin=pt;
+	if (pt>Ptmax && pt>PTCUT-0.5) Ptmin=pt;
 	if ((*STUB_x)[is]<0) continue;
 	if ((*STUB_y)[is]<0) continue;
 	DEBUG_PRINT(logFile_,"%f %f %f \n",pt,(*STUB_pt)[is],(*STUB_deltas)[is]);
