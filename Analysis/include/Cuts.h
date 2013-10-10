@@ -1,3 +1,3 @@
-#define NBINRHO 192
-#define NDELTA  1.5
+#define NBINRHO 160
+#define NDELTA  2.0
 #define PTCUT   3.0
