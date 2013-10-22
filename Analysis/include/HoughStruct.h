@@ -6,10 +6,13 @@ typedef struct {
   double pt;
   double eta;
   double z0;
+  double rho0;
   uint32_t nstubs;
   uint32_t maxstubs;
   uint32_t matches;
+  uint32_t nhits;
   bool valid;
+  float pterr,phierr;
 } mctrack_t;
 
 
@@ -19,6 +22,7 @@ typedef struct
   float x,y,z;
   float xp,yp,r2;
   int32_t tp;
+  uint16_t layer;
 } stub_t;
 
 #define STUBID(layer,ladder,module,segment,strip) (((layer&0x7f)<<25)|((ladder&0x7f)<<18)|((module&0x7f)<<11)| ((segment&0x1)<<10)| (strip&0x3ff))

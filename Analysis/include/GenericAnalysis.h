@@ -25,6 +25,13 @@
 #define INFO_PRINT(format, args...) ((void)0)
 #endif
 
+typedef struct
+{
+  uint32_t goodmc;
+  uint32_t missed;
+  uint32_t fake;
+} sectinfo;
+
 class GenericAnalysis
 {
 public:
@@ -36,7 +43,9 @@ public:
   void fill_histos();
   void associate();
   void event_hough();
-
+  void basicHistos();
+  void analyzePrecise();
+  void alternativeAssociate();
 protected:
   std::map<uint32_t,stub_t> theStubMap_;
   std::map<int32_t,mctrack_t> theMCMap_;
@@ -44,7 +53,7 @@ protected:
   std::vector<mctrack_t> theHoughCandidateVector_;
   std::vector<mctrack_t> theAssociatedTracks_;
   std::vector<mctrack_t> theFakeTracks_;
-
+  
   DCHistogramHandler* theRootHandler_;
   HOUGHLOCAL* theHoughLow_;
   HOUGHLOCAL* theHoughPrecise_;
@@ -52,5 +61,8 @@ protected:
   float thePtCut_,theNDelta_;
   uint32_t theNBinRho_;
   FILE* logFile_;
+  bool barrel,endcap;
+  std::map<uint32_t,sectinfo> sectmap_;
+  uint32_t theSector_;
 };
 #endif

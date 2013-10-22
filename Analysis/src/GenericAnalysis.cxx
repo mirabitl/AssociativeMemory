@@ -2,19 +2,22 @@
 #include <stdio.h>
 #include <bitset>
 #include <TROOT.h>
+#include <TApplication.h>
 #include <TChain.h>
 #include <TFile.h>
 using namespace std;
 #define USEMAIN
 #ifdef USEMAIN
-int main()
+int main(int argc, char* argv[])
 {
+  TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
-  a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
+  //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
+  a.AddFile("/home/mirabito/AssociativeMemory/output_PU4T_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
 }
 #endif
 
-GenericAnalysis::GenericAnalysis() :thePtCut_(2.0),theNBinRho_(160),theNDelta_(2.0)
+GenericAnalysis::GenericAnalysis() :thePtCut_(2.0),theNBinRho_(192),theNDelta_(1.5)
 {
   theHoughLow_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
   theHoughPrecise_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
@@ -35,7 +38,357 @@ void GenericAnalysis::AddFile(std::string name,GenericAnalysis::FileType type)
 
 void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 {
-  ;
+  
+  TChain *L1TT            = new TChain("FullInfo");  
+
+  L1TT->Add(fname.c_str());
+
+  //
+  //1/ FullInfo TREE content:
+  //
+  // https://github.com/sviret/HL_LHC/blob/master/Extractors/RecoExtractor/test/SectorMaker/sector_test.h
+  //
+
+
+  int evt;             // Event number (for PU event, where there is more than 1 primary)
+  int n_stub_total;    // The total number of stubs in the event
+  int n_stub;          // The total number of stubs contained in matched patterns in the event
+
+  std::vector<float>   *stub_x=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<int>     *stub_layer=new std::vector<int>;  // layer number of ALL the stubs
+  std::vector<int>     *stub_ladder=new std::vector<int>; // ladder number of ALL the stubs
+  std::vector<int>     *stub_module=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_tp=new std::vector<int>;     // tp index of ALL the stubs (in part_*** vectors of this tree!!!!)
+  std::vector<int>     *stub_inpatt=new std::vector<int>; // is the stub in a pattern (1) of not (0)?
+
+  int n_part;                        // The total number of particles inducing at least one stub in the event
+
+  std::vector<int>     *part_pdg=new std::vector<int>;    // PDG id of the particles
+  std::vector<int>     *part_nsec=new std::vector<int>;   // In how many trigger towers this particle hit more than 4 different layers/disks?
+  std::vector<int>     *part_nhits=new std::vector<int>;  // How many different layers/disks are hit by the particle?
+  std::vector<int>     *part_npatt=new std::vector<int>;  // How many patterns contains more than 4 stubs of the particle (in 4 different layers/disks)?
+  std::vector<float>   *part_pt=new std::vector<float>;     // pt of the particles
+  std::vector<float>   *part_rho=new std::vector<float>;    // rho0 of the particles
+  std::vector<float>   *part_z0=new std::vector<float>;     // z0 of the particles
+  std::vector<float>   *part_eta=new std::vector<float>;    // eta of the particles 
+  std::vector<float>   *part_phi=new std::vector<float>;    // phi of the particles
+
+  int n_patt;                        // The total number of patterns matched in the event
+
+  // Sector id of all the patterns
+  std::vector<int>                  *patt_sec=new std::vector<int>;   
+
+  // tp index of ALL the particles contained in the pattern (in part_*** vectors of this tree!!!!)
+  std::vector< std::vector<int> >   *patt_parts=new std::vector< std::vector<int> >; 
+
+  // index of ALL the stubs contained in the pattern (in stub_*** vectors of this tree!!!!) 
+  std::vector< std::vector<int> >   *patt_stubs=new std::vector< std::vector<int> >; ; 
+
+  L1TT->SetBranchAddress("evt",          &evt); 
+
+  L1TT->SetBranchAddress("n_stub_total", &n_stub_total); 
+  L1TT->SetBranchAddress("n_stub_inpat", &n_stub); 
+  L1TT->SetBranchAddress("stub_x",       &stub_x); 
+  L1TT->SetBranchAddress("stub_y",       &stub_y); 
+  L1TT->SetBranchAddress("stub_z",       &stub_z); 
+  L1TT->SetBranchAddress("stub_layer",   &stub_layer); 
+  L1TT->SetBranchAddress("stub_ladder",  &stub_ladder);
+  L1TT->SetBranchAddress("stub_module",  &stub_module);
+  L1TT->SetBranchAddress("stub_tp",      &stub_tp);
+  L1TT->SetBranchAddress("stub_inpatt",  &stub_inpatt);
+
+  L1TT->SetBranchAddress("n_part",       &n_part); 
+  L1TT->SetBranchAddress("part_pdg",     &part_pdg); 
+  L1TT->SetBranchAddress("part_nsec",    &part_nsec); 
+  L1TT->SetBranchAddress("part_nhits",   &part_nhits); 
+  L1TT->SetBranchAddress("part_npatt",   &part_npatt); 
+  L1TT->SetBranchAddress("part_pt",      &part_pt); 
+  L1TT->SetBranchAddress("part_rho",     &part_rho);
+  L1TT->SetBranchAddress("part_z0",      &part_z0);
+  L1TT->SetBranchAddress("part_eta",     &part_eta);  
+  L1TT->SetBranchAddress("part_phi",     &part_phi); 
+
+  L1TT->SetBranchAddress("n_patt",       &n_patt); 
+  L1TT->SetBranchAddress("patt_sec",     &patt_sec); 
+  L1TT->SetBranchAddress("patt_parts",   &patt_parts); 
+  L1TT->SetBranchAddress("patt_stubs",   &patt_stubs); 
+
+  int n_entries = L1TT->GetEntries();
+
+  //if (evtnum>=n_entries) evtnum = n_entries-1;
+  //if (evtnum<0) evtnum = 0;
+  sectmap_.clear();
+  for (uint32_t isect=1;isect<=56;isect++)
+    {
+      sectinfo s;
+      memset(&s,0,sizeof(sectinfo));
+      std::pair<uint32_t,sectinfo> p(isect,s);
+      sectmap_.insert(p);
+    }
+  for(int evtnum=1;evtnum<n_entries;evtnum++)
+    {
+
+  
+      L1TT->GetEntry(evtnum);
+
+      cout <<endl;
+      cout << "Analyzing event " << evt <<endl;
+      cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
+      cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
+      cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
+      cout << endl;
+      cout << "Now looping over the patterns... " <<endl;
+      cout << endl;
+      //getchar();
+      // Loop over patterns
+
+      int idx_s;
+      int idx_p;
+
+      for (uint32_t isect=1;isect<57;isect++)
+	{
+	  if (isect!=1 && isect!=5) continue;
+	  endcap= (isect<8 || isect>=48);
+	  barrel=!endcap;
+	  if (endcap)
+	    {
+	      theNBinRho_=160;
+	      theNDelta_=2.0;
+	    }
+	  else
+	    {
+	      theNBinRho_=192;
+	      theNDelta_=1.5;
+
+	    }
+      theStubMap_.clear();
+      theMCMap_.clear();
+      theSector_=isect;
+      for (int k=0;k<n_patt;++k)
+	{
+	  if (patt_sec->at(k)!=isect ) continue;
+	  /*
+	  cout << "-------------------------------------------------"  <<endl;
+	  cout << "Pattern " << k+1 << " properties:"  <<endl;
+	  cout << "=> Sector id : " << patt_sec->at(k) <<endl;
+	  cout << "=> Number of stubs : " << patt_stubs->at(k).size() <<endl;
+	  cout << "=> Number of particles w/more than four stubs in the pattern : " << patt_parts->at(k).size() <<endl;
+	  */
+	  if (patt_parts->at(k).size()==0)
+	    {
+	      //cout << "!! FAKE PATTERN containing the following stubs: " <<endl;
+
+	      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+		{
+		  idx_s = patt_stubs->at(k).at(kk);
+		  idx_p = stub_tp->at(idx_s);
+		  /*
+		  cout << " Stub " << kk+1 << endl;  
+		  cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+		       << "/" << stub_y->at(idx_s) 
+		       << "/" << stub_z->at(idx_s) << endl;
+		  */
+
+		  uint32_t hitIndex=idx_s;
+
+		  //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
+		  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+	      if (is==theStubMap_.end())
+		{
+	       
+		  stub_t s;
+		  s.id=idx_s;
+		  s.x=stub_x->at(hitIndex);
+		  s.y=stub_y->at(hitIndex);
+		  s.z=stub_z->at(hitIndex);
+		  s.r2=s.x*s.x+s.y*s.y;;
+		  s.xp=s.x/s.r2;
+		  s.yp=s.y/s.r2;
+		  s.tp=stub_tp->at(hitIndex);
+		  s.layer =stub_layer->at(hitIndex);
+		  //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+		  std::pair<uint32_t,stub_t> p(idx_s,s);
+		  theStubMap_.insert(p);
+		}
+	      std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+	      if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+		{
+		  mctrack_t mct;
+		  mct.id=stub_tp->at(hitIndex);
+		  mct.phi=part_phi->at(mct.id);
+		  if (mct.phi<0) mct.phi+=2*PI;
+		  mct.pt=part_pt->at(mct.id);
+		  mct.z0=part_z0->at(mct.id);
+		  mct.rho0=part_rho->at(mct.id);
+		  mct.eta=part_eta->at(mct.id);
+		  mct.nhits=part_nhits->at(mct.id);
+		  mct.nstubs=(1<<stub_layer->at(hitIndex));
+		  mct.maxstubs=1;
+		  mct.valid=false;
+		  mct.matches=0;
+		  // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+		  std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+		  theMCMap_.insert(mcp);
+
+		}
+	      else
+		if (im!=theMCMap_.end())
+		  im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+	      
+		  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+		    {
+		      /*
+		      cout << "    Matched with PART   : " << idx_p << endl;
+		      cout << "    PTgen     : " << part_pt->at(idx_p) 
+			   << endl;
+	  
+		      cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+			   << part_z0->at(idx_p) << endl; 
+		      cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+		      */
+		    }
+		  else
+		    {
+		      //cout << "Unmatched" << endl;
+		    }
+		}
+	    }
+	  else
+	    {
+	      for (int jj=0;jj<patt_parts->at(k).size();++jj)
+		{
+		  //cout << "Particle: " << jj+1 <<endl;
+		}
+
+	      /*
+	      cout << "This patterns contains the following stubs: " <<endl;
+	      */
+	      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+		{
+		  idx_s = patt_stubs->at(k).at(kk);
+		  idx_p = stub_tp->at(idx_s);
+		  /*
+		  cout << " Stub " << kk+1 << endl;  
+		  cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+		       << "/" << stub_y->at(idx_s) 
+		       << "/" << stub_z->at(idx_s) << endl;
+
+		  */
+
+		  uint32_t hitIndex=idx_s;
+
+		  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+		  if (is==theStubMap_.end())
+		    {
+		      
+		      stub_t s;
+		      s.id=idx_s;
+
+		      s.x=stub_x->at(hitIndex);
+		      s.y=stub_y->at(hitIndex);
+		      s.z=stub_z->at(hitIndex);
+		      s.r2=s.x*s.x+s.y*s.y;;
+		      s.xp=s.x/s.r2;
+		      s.yp=s.y/s.r2;
+		      s.tp=stub_tp->at(hitIndex);
+		      s.layer =stub_layer->at(hitIndex);
+		      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+		      std::pair<uint32_t,stub_t> p(idx_s,s);
+		      theStubMap_.insert(p);
+		    }
+
+		  std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+	      if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+		{
+		  mctrack_t mct;
+		  mct.id=stub_tp->at(hitIndex);
+		  mct.phi=part_phi->at(mct.id);
+		  if (mct.phi<0) mct.phi+=2*PI;
+		  mct.pt=part_pt->at(mct.id);
+		  mct.z0=part_z0->at(mct.id);
+		  mct.rho0=part_rho->at(mct.id);
+		  mct.eta=part_eta->at(mct.id);
+		  mct.nhits=part_nhits->at(mct.id);
+		  mct.nstubs=(1<<stub_layer->at(hitIndex));
+		  mct.maxstubs=1;
+		  mct.valid=false;
+		  mct.matches=0;
+		  // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+		  std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+		  theMCMap_.insert(mcp);
+
+		}
+	      else
+		if (im!=theMCMap_.end())
+		  im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+
+
+
+
+		  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+		    {
+		      /*
+		      cout << "    Matched with PART   : " << idx_p << endl;
+		      cout << "    PTgen     : " << part_pt->at(idx_p) 
+			   << endl;
+	  
+		      cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+			   << part_z0->at(idx_p) << endl; 
+		      cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+		      */
+		    }
+		  else
+		    {
+		      // cout << "Unmatched" << endl;
+		    }
+		}
+	    }
+	}
+      
+      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+	  {
+
+	    
+	    uint8_t np=0;
+	    for (uint8_t ib=5;ib<=24;ib++)
+	      if ((im->second.nstubs>>ib)&1) np++;
+	    //if (im->second.pt>5 ||im->second.pt<3 ) continue;	  
+	    if (im->second.pt<thePtCut_-0.8) continue;	  
+	    if (abs(im->second.rho0)>0.5) continue;	  
+	    if (np>=5 &&im->second.pt>thePtCut_ && im->second.nhits>=5) 
+	      {
+		printf("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.rho0);
+		if (np>im->second.maxstubs) 	im->second.maxstubs=np;
+		if (im->second.valid)					
+		  continue;
+		else
+		  {
+		    im->second.valid=true;
+		    //hext2->Fill(im->second.pt,tan(im->second.phi));
+		
+		    //hptgen->Fill(log(im->second.pt));
+		    //hphigen->Fill(tan(im->second.phi));
+		  }
+	    
+	      }
+	  }
+
+      
+	uint32_t ngood=0;
+	for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+	  if (im->second.valid) ngood++;
+	DEBUG_PRINT(logFile_,"MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	printf("MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	//getchar();
+      // Make analysis
+	if (ngood==0) continue;
+	event_hough();
+	alternativeAssociate();
+	}
+    }
+
 }
 void GenericAnalysis::FillMapGuillaumeNtuple(std::string fname)
 
@@ -298,7 +651,7 @@ void GenericAnalysis::FillMapGuillaumeNtuple(std::string fname)
 		  s.xp=s.x/s.r2;
 		  s.yp=s.y/s.r2;
 		  s.tp=hit_tp[hitIndex];
-		
+		  s.layer=hit_layer[hitIndex];
 		  //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
 		  std::pair<uint32_t,stub_t> p(sid,s);
 		  theStubMap_.insert(p);
@@ -385,7 +738,24 @@ void GenericAnalysis::FillMapGuillaumeNtuple(std::string fname)
   theRootHandler_->writeHistograms(rfile);
 }
 
-
+void GenericAnalysis::basicHistos()
+{
+  TH1F* hptgood=(TH1F*) theRootHandler_->GetTH1("Ptgood");
+  TH1F* hptgoodfound=(TH1F*) theRootHandler_->GetTH1("Ptgoodfound");
+  TH1F* hphigood=(TH1F*) theRootHandler_->GetTH1("Phigood");
+  TH1F* hphigoodfound=(TH1F*) theRootHandler_->GetTH1("Phigoodfound");
+  TH2F* hdptnear_pth = (TH2F*) theRootHandler_->GetTH2("Dptnear_pth");
+  TH2F* hdptonear_pth = (TH2F*) theRootHandler_->GetTH2("Dptonear_pth");
+  TH2F* hdphinear_phih = (TH2F*) theRootHandler_->GetTH2("Dphinear_phi_h");
+  if (hptgood==NULL)
+    {
+      hptgood=(TH1F*)theRootHandler_->BookTH1("Ptgood",500,0.5,50.);
+      hptgoodfound=(TH1F*)theRootHandler_->BookTH1("Ptgoodfound",500,0.5,50.);
+      hphigood=(TH1F*)theRootHandler_->BookTH1("Phigood",200,0.,2*PI);
+      hphigoodfound=(TH1F*)theRootHandler_->BookTH1("Phigoodfound",200,0.,2*PI);
+      
+    }
+}
 
 void GenericAnalysis::fill_histos()
 {
@@ -534,11 +904,17 @@ void GenericAnalysis::fill_histos()
 
 void GenericAnalysis::associate()
 {
+  ngoodmc_=0;
+  nmiss_=0;
+  nfake_=0;
+  
   for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
     {
 	
       double pth=(*ihbp).pt;
       double phih=(*ihbp).phi;
+      printf("  Candiddate Hough Track %f %f %d \n",pth,phih,(*ihbp).nhits);
+      
       if (pth<thePtCut_*0.9) continue;
       
       double dphmin=9999.;double dptmin=9999.,errmin=9999.;
@@ -570,11 +946,11 @@ void GenericAnalysis::associate()
 	  bool found=false;
 	  for (std::vector <mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia<theAssociatedTracks_.end();)
 	    {
-	      double dph=tan(ismin->second.phi-(*ia).phi);						
+	      double dph=(ismin->second.phi-(*ia).phi);						
 	      double dpt=ismin->second.pt-(*ia).pt;
-	      if (abs(dph)>1E-2) {ia++;continue;}
-	      if (abs(dpt)/(*ia).pt>1E-1) {ia++;continue;}
-	      double err=abs(dpt/(*ia).pt*dph);
+	      if (abs(dph)>5E-2) {ia++;continue;}
+	      if (abs(dpt)/(*ia).pt>1.5E-1) {ia++;continue;}
+	      double err=abs(dph);
 	      if (err<=errmin)
 		{
 		  errmin=err;
@@ -606,11 +982,12 @@ void GenericAnalysis::associate()
 	  bool found=false;
 	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
 	    {
-	      double dph=tan(tk.phi-(*ia).phi);						
+	      double dph=(tk.phi-(*ia).phi);						
 	      double dpt=tk.pt-(*ia).pt;
-	      if (abs(dph)>5E-3) {ia++;continue;}
+	      if (abs(dph)>5E-2) {ia++;continue;}
 	      if (abs(dpt)/(*ia).pt>5E-2) {ia++;continue;}
 	      found=true;
+	      printf("?????? Bad Associated Hough Track %f %f %d\n",tk.pt,tan(tk.phi),tk.nhits);
 	      break;
 	    }
 	  if (!found && tk.pt>thePtCut_)
@@ -620,15 +997,17 @@ void GenericAnalysis::associate()
 	      // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
 
 	    }
+	  if (!found && tk.pt<thePtCut_)
+	    printf("?????? Bad Hough Track %f %f %d\n",tk.pt,tan(tk.phi),tk.nhits);
 	}
       //DEBUG_PRINT(logFile_,"Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
     }
 
-  DEBUG_PRINT(logFile_," Number of Hough candidate %d and good %d  and fake %d \n",theHoughCandidateVector_.size(),theAssociatedTracks_.size(),theFakeTracks_.size());
+  printf(" Number of Hough candidate %d and good %d  and fake %d \n",theHoughCandidateVector_.size(),theAssociatedTracks_.size(),theFakeTracks_.size());
   for (std::vector <mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp<theAssociatedTracks_.end();ihbp++)
-    DEBUG_PRINT(logFile_,"Valid Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+    printf("Valid Hough Track %f %f %d \n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).nhits);
   for (std::vector <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp<theFakeTracks_.end();ihbp++)
-    DEBUG_PRINT(logFile_,"-------------> Fake Hough Track %f %f \n",(*ihbp).pt,tan((*ihbp).phi));
+    printf("-------------> Fake Hough Track %f %f %f \n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).rho0);
   nfake_+=theFakeTracks_.size();
   for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
     {
@@ -638,13 +1017,21 @@ void GenericAnalysis::associate()
 	  if (im->second.matches==0)
 	    {
 	      nmiss_++;
-	      DEBUG_PRINT(logFile_,"++++++ missed MC Track %f %f \n",im->second.pt,tan(im->second.phi));
+	      printf("++++++ missed MC Track %f %f \n",im->second.pt,tan(im->second.phi));
 	    }
 	   
 	}
     }
 
   DEBUG_PRINT(logFile_,"Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
+  printf("Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
+  sectmap_[theSector_].goodmc+=ngoodmc_;
+  sectmap_[theSector_].missed+=nmiss_;
+  sectmap_[theSector_].fake+=nfake_;
+
+  for (uint32_t isect=1;isect<40;isect++)
+    if (sectmap_[isect].goodmc)
+    printf("%d %d %d %d \n",isect,sectmap_[isect].goodmc,sectmap_[isect].missed,sectmap_[isect].fake);
 }
 
 void GenericAnalysis::event_hough()
@@ -662,16 +1049,20 @@ void GenericAnalysis::event_hough()
   std::vector < std::pair<double,double> > hbins; hbins.clear();
   std::vector < std::pair<uint16_t,uint16_t> > hibins; hibins.clear();
 
-  uint32_t votemax=theHoughLow_->getVoteMax()-1;
+  uint32_t votemax=(theHoughLow_->getVoteMax()>8)?theHoughLow_->getVoteMax()-4:4;
+  
   uint32_t votemin=3;
   //if (theHoughLow_->getVoteMax()>6) votemax=5;
   std::vector<uint32_t> vids;vids.clear();
-  theHoughLow_->findMaximumBins(hbins,4,&vids);
+  theHoughLow_->findMaximumBins(hbins,votemax,&vids);
   //theHoughLow_->findThresholdBins(hbins,9);
   if (theHoughLow_->getVoteMax()<4) return;
   INFO_PRINT(logFile_,"SIZE OF HITS %d\n",(int) vids.size());
-  theHoughLow_->draw(theRootHandler_);
+  printf("SIZE OF HITS %d %d %d\n",(int) vids.size(),(int) hbins.size(),theHoughLow_->getVoteMax());
+#ifdef DO_DRAW
 
+  theHoughLow_->draw(theRootHandler_);
+#endif
   for (uint32_t i=0;i<theHoughLow_->getNbinTheta();i++)
     for (uint32_t j=0;j<theHoughLow_->getNbinR();j++)
       {
@@ -679,7 +1070,7 @@ void GenericAnalysis::event_hough()
 	double pth=0.3*3.8*R/100.;
 	if (pth<thePtCut_-0.5) continue;
 	std::vector<uint32_t> vid;vid.clear();
-	if (theHoughLow_->getHoughImage(i,j)<4) continue;
+	if (theHoughLow_->getHoughImage(i,j)<3) continue;
 
 	std::bitset<24> planes(0);
 	if (i>0 && i<theHoughLow_->getNbinTheta()-1 &&j>0 && j<theHoughLow_->getNbinR()-1)
@@ -694,11 +1085,11 @@ void GenericAnalysis::event_hough()
 #ifndef USE_HV
 		      std::vector<uint32_t> v=theHoughLow_->getHoughMap(i+ic,j+jc);
 		      for (std::vector<uint32_t>::iterator it=v.begin();it!=v.end();it++)
-			if (std::find(vid.begin(),vid.end(), (*it))==vid.end()) {vid.push_back((*it));planes.set(LAYER((*it)),true);}
+			if (std::find(vid.begin(),vid.end(), (*it))==vid.end()) {vid.push_back((*it));planes.set(theStubMap_[(*it)].layer,true);}
 #else
 		      HoughVector v=theHoughLow_->getHoughMap(i+ic,j+jc);
 		      for (uint32_t it=0;it<v.size();it++)
-			if (std::find(vid.begin(),vid.end(),v[it])==vid.end()) {vid.push_back(v[it]);planes.set(LAYER(v[it]),true);}
+			if (std::find(vid.begin(),vid.end(),v[it])==vid.end()) {vid.push_back(v[it]);planes.set(theStubMap_[(*it)].layer,true);}
 
 #endif
 		    }
@@ -712,11 +1103,11 @@ void GenericAnalysis::event_hough()
 #ifndef USE_HV
 	    std::vector<uint32_t> v=theHoughLow_->getHoughMap(i,j);
 	    for (std::vector<uint32_t>::iterator it=v.begin();it!=v.end();it++)
-	      if (std::find(vid.begin(),vid.end(), (*it))==vid.end()) {vid.push_back((*it));planes.set(LAYER((*it)),true);}
+	      if (std::find(vid.begin(),vid.end(), (*it))==vid.end()) {vid.push_back((*it));planes.set(theStubMap_[(*it)].layer,true);}
 #else
 	    HoughVector v=theHoughLow_->getHoughMap(i,j);
 	    for (uint32_t it=0;it<v.size();it++)
-	      if (std::find(vid.begin(),vid.end(),v[it])==vid.end()) {vid.push_back(v[it]);planes.set(LAYER(v[it]),true);}
+	      if (std::find(vid.begin(),vid.end(),v[it])==vid.end()) {vid.push_back(v[it]);planes.set(theStubMap_[(*it)].layer,true);}
 
 #endif
 
@@ -724,27 +1115,52 @@ void GenericAnalysis::event_hough()
 	uint32_t nafter=0;
 	for (uint32_t ib=0;ib<24;ib++)
 	  if (planes[ib]!=0) nafter++;
-	if (nafter<3) continue;
+	if (nafter<3) continue; //was 3
+	unsigned long long planhit=planes.to_ulong();
+	//printf("%lx \n",planhit);
+	if (!planes[5] && endcap) continue;
+	if ( barrel && (planhit&0xa0)==0 && (planhit&0xc0)==0 && (planhit&0x60)==0) continue;
+	//if (!((planes[5]&&planes[6]) || (planes[7]&&planes[6])||(planes[5]&&planes[7])) )continue;
 	
 	
-	//DEBUG_PRINT(logFile_,"BIn selected %d,%d  counts %d %f\n",i,j,(int) vid.size(),pth);
+	//printf("BIn selected %d,%d  counts %d %f\n",i,j,(int) vid.size(),pth);
+#define OLD_VERSION
+#ifdef OLD_VERSION
+	uint32_t nbinf=64;
+	// <5,5-10,10-30,>30
+	if (pth<3) nbinf=64;
+	if (pth>=3 && pth<5) nbinf=128; // 128
+	if (pth>=5  && pth<15) nbinf=128;//192
+	if (pth>=15 && pth<=30) nbinf=128;//256
+	if (pth>=30 ) nbinf=256;//384
+
+	nbinf /=1; //2 avant
+	//if (endcap) nbinf/=2;
+	uint32_t nbinr=nbinf;
+	if (vid.size()>20) nbinf=2*nbinf;
+
+	//if (vid.size()>100) {nbinf=2*nbinf;;nbinr=nbinf;}
+#else
 	uint32_t nbinf=64;
 	// <5,5-10,10-30,>30
 	if (pth<3) nbinf=64;
 	if (pth>=3 && pth<5) nbinf=128;
-	if (pth>=5  && pth<15) nbinf=192;
+	if (pth>=5  && pth<15) nbinf=128;
 	if (pth>=15 && pth<=30) nbinf=256;
-	if (pth>=30 ) nbinf=384;
+	if (pth>=30 ) nbinf=512;
 
-	nbinf /=2; //2 avant
+
+#endif
 	float ndel=theNDelta_; // 2 avant
 	//HOUGHLOCAL *htp = new HOUGHLOCAL(theHoughLow_->getTheta(i)-2*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+2*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-2*theHoughLow_->getRBin(),theHoughLow_->getR(j)+2*theHoughLow_->getRBin(),nbinf,nbinf);
-	theHoughPrecise_->initialise(theHoughLow_->getTheta(i)-ndel*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+ndel*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-ndel*theHoughLow_->getRBin(),theHoughLow_->getR(j)+ndel*theHoughLow_->getRBin(),nbinf,nbinf);
+	theHoughPrecise_->initialise(theHoughLow_->getTheta(i)-ndel*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+ndel*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-ndel*theHoughLow_->getRBin(),theHoughLow_->getR(j)+ndel*theHoughLow_->getRBin(),nbinf,nbinr);
 	theHoughPrecise_->clear();
 	for ( std::vector<uint32_t>::iterator itd=vid.begin();itd!=vid.end();itd++)
 	  {
 	    theHoughPrecise_->addStub(theStubMap_[(*itd)]);
 	  }
+	analyzePrecise();
+	continue;
 	//	theHoughPrecise_->draw(d);
 	std::vector< std::pair<double,double> > hfbins;hfbins.clear();
 	uint32_t vmax=0,nmax=0,imax=0,jmax=0;double thetamax,rmax;
@@ -755,6 +1171,7 @@ void GenericAnalysis::event_hough()
 	      if (theHoughPrecise_->getHoughImage(ii,jj)<4) continue;
 	      uint neigh=0;
 	      double theta=0,r=0;
+	     
 	      for (int ic=-1;ic<=1;ic++)
 		for (int jc=-1;jc<=1;jc++)
 		  {
@@ -785,36 +1202,71 @@ void GenericAnalysis::event_hough()
 		    thetamax=theta/neigh;
 		    rmax=r/neigh;
 		  }
+
 	    }
-	if (nmax<5) {//delete htp;
+	if (nmax<4) {//delete htp; was 5
 	  continue;}
+	 std::vector<uint32_t> vn;vn.clear();
+	 //printf("IMAX %d %d \n",imax,jmax);
+	 for (int ic=-1;ic<=1;ic++)
+	   for (int jc=-1;jc<=1;jc++)
+	     {
+	       if (ic+imax<0) continue;
+	       if (ic+imax>=theHoughPrecise_->getNbinTheta()) continue;
+	       if (jc+jmax<0) continue;
+	       if (jc+jmax>=theHoughPrecise_->getNbinR()) continue;
+	       std::vector<uint32_t> v=theHoughPrecise_->getHoughMap(imax+ic,jmax+jc);
+	       for (std::vector<uint32_t>::iterator itv=v.begin();itv!=v.end();itv++)
+		 if (std::find(vn.begin(),vn.end(),(*itv))==vn.end())
+		   vn.push_back((*itv));
+	     }
+	 printf("VN SIZE %d nmax %d \n",vn.size(),nmax);
 	std::bitset<24> planez(0);
 #ifndef USE_HV
 	std::vector<uint32_t> v=theHoughPrecise_->getHoughMap(imax,jmax);
-	for (std::vector<uint32_t>::iterator it=v.begin();it!=v.end();it++)
-	  planez.set(LAYER((*it)),true);
+	for (std::vector<uint32_t>::iterator it=vn.begin();it!=vn.end();it++)
+	  planez.set(theStubMap_[(*it)].layer,true);
 #else
 	HoughVector v=theHoughPrecise_->getHoughMap(imax,jmax);
 	for (uint32_t it=0;it<v.size();it++)
-	  planez.set(LAYER(v[it]),true);
+	  planez.set(theStubMap_[(*it)].layer,true);
 #endif
 
 	//std::cout<<planez<<std::endl;
 	uint32_t nafte=0;
 	for (uint32_t ib=0;ib<24;ib++)
 	  if (planez[ib]!=0) nafte++;
-	if (nafte<4) {//delete htp;
-	  continue;}
+	printf("%d %lx \n",nafte,planez.to_ulong());
+        if (nafte<5) { continue;} //@@@@ was 4
+	if (barrel && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
+
 	mctrack_t t;
+	
 	HOUGHLOCAL::Convert(thetamax,rmax,&t);
+	std::vector<uint32_t>::iterator itm=v.begin();
+	float x=theStubMap_[(*itm)].x;
+	float y=theStubMap_[(*itm)].y;
+	//printf("%f %f %f \n",x,y,t.phi);
+	if (x>0 && y>0 && t.phi>PI) t.phi-=PI;
+	if (x<0 && y>0 && t.phi>PI) t.phi-=PI;
+	if (x<0 && y<0 && t.phi<PI) t.phi+=PI;
+	if (x>0 && y<0 && t.phi<PI) t.phi+=PI;
+
+	/* if (x>0 && y<0 && t.phi<0) t.phi+=2*PI;
+	if (x>0 && y>0 && t.phi<0) t.phi+=2*PI;
+	*/
+	t.nhits=nafte;
 	theHoughCandidateVector_.push_back(t);
-	//@ hfbins.clear();
-	//@ std::pair<double,double> p(thetamax,rmax);//theHoughPrecise_->getTheta(imax),theHoughPrecise_->getR(jmax));
-	//@ hfbins.push_back(p);
+	//@@@hfbins.clear();
+        //@@@std::pair<double,double> p(thetamax,rmax);//theHoughPrecise_->getTheta(imax),theHoughPrecise_->getR(jmax));
+	//@@@hfbins.push_back(p);
+
+
+
 	// if (theHoughPrecise_->getVoteMax()<3) {delete htp;continue;}
 	//if (draw) theHoughPrecise_->draw(&rootHandler_);
 	//theHoughPrecise_->findMaximumBins(hfbins,3);
-	//@ theHoughPrecise_->draw(d,&hfbins);
+        //@@@theHoughPrecise_->draw(theRootHandler_,&hfbins);
 	  
 	//delete htp;
       }
@@ -861,4 +1313,254 @@ void GenericAnalysis::event_hough()
   */
 
   //delete htl;
+}
+
+void GenericAnalysis::analyzePrecise()
+{
+  std::vector< std::pair<double,double> > hfbins;hfbins.clear();
+  uint32_t vmax=0,nmax=0,imax=0,jmax=0;double thetamax,rmax;
+  for (uint32_t ii=0;ii<theHoughPrecise_->getNbinTheta();ii++)
+    for (uint32_t jj=0;jj<theHoughPrecise_->getNbinR();jj++)
+      {
+	      
+	if (theHoughPrecise_->getHoughImage(ii,jj)<4) continue;
+	std::bitset<24> planez(0);
+	std::vector<uint32_t> v=theHoughPrecise_->getHoughMap(ii,jj);
+	      
+	for (std::vector<uint32_t>::iterator it=v.begin();it!=v.end();it++)
+	  planez.set(theStubMap_[(*it)].layer,true);
+	uint32_t nafte=0;
+	for (uint32_t ib=0;ib<24;ib++)
+	  if (planez[ib]!=0) nafte++;
+
+        if (nafte<4) { continue;} //@@@@ was 4
+	if (!planez[5] && endcap) continue;
+	if (barrel && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
+	bool notmax=false;
+	for (int ic=-1;ic<=1;ic++)
+	  for (int jc=-1;jc<=1;jc++)
+	    {
+	      if (ic==0 && jc == 0) continue;
+	      if (ic+ii<0) continue;
+	      if (ic+ii>=theHoughPrecise_->getNbinTheta()) continue;
+	      if (jc+jj<0) continue;
+	      if (jc+jj>=theHoughPrecise_->getNbinR()) continue;
+	      if (theHoughPrecise_->getHoughImage(ii+ic,jj+jc)>theHoughPrecise_->getHoughImage(ii,jj)) 
+		{notmax=true;break;}
+	    }
+	if (notmax) continue;
+	
+	
+	uint neigh=0;
+	double theta=0,r=0;
+	std::vector<uint32_t> vn;vn.clear();
+	          
+	for (int ic=-1;ic<=1;ic++)
+	  for (int jc=-1;jc<=1;jc++)
+	    {
+	      if (ic+ii<0) continue;
+	      if (ic+ii>=theHoughPrecise_->getNbinTheta()) continue;
+	      if (jc+jj<0) continue;
+	      if (jc+jj>=theHoughPrecise_->getNbinR()) continue;
+	      neigh+=theHoughPrecise_->getHoughImage(ii+ic,jj+jc);
+	      r+=(theHoughPrecise_->getR(jj+jc))*theHoughPrecise_->getHoughImage(ii+ic,jj+jc);
+	      theta+=(theHoughPrecise_->getTheta(ii+ic))*theHoughPrecise_->getHoughImage(ii+ic,jj+jc);
+
+
+	      std::vector<uint32_t> v=theHoughPrecise_->getHoughMap(ii+ic,jj+jc);
+	      for (std::vector<uint32_t>::iterator itv=v.begin();itv!=v.end();itv++)
+		if (std::find(vn.begin(),vn.end(),(*itv))==vn.end())
+		  vn.push_back((*itv));
+
+	    }
+	//printf("%d %d %lx \n",vn.size(),nafte,planez.to_ulong());	
+	//if (vn.size()<5) continue;
+
+	theta=theta/neigh;
+	r=r/neigh;
+	theta=theHoughPrecise_->getTheta(ii);
+	r=theHoughPrecise_->getR(jj);
+
+
+
+	//std::cout<<planez<<std::endl;
+	
+
+	mctrack_t t;
+	
+	HOUGHLOCAL::Convert(theta,r,&t);
+	std::vector<uint32_t>::iterator itm=vn.begin();
+	float x=theStubMap_[(*itm)].x;
+	float y=theStubMap_[(*itm)].y;
+	//printf("%f %f %f \n",x,y,t.phi);
+	if (x>0 && y>0 && t.phi>PI) t.phi-=PI;
+	if (x<0 && y>0 && t.phi>PI) t.phi-=PI;
+	if (x<0 && y<0 && t.phi<PI) t.phi+=PI;
+	if (x>0 && y<0 && t.phi<PI) t.phi+=PI;
+
+
+	t.phierr=theHoughPrecise_->getThetaBin();
+	t.pterr=t.pt*theHoughPrecise_->getRBin()/abs(r);
+	//printf("%f +- %f  / %f +- %f \n",t.pt,t.pterr,t.phi,t.phierr);
+	/* if (x>0 && y<0 && t.phi<0) t.phi+=2*PI;
+	if (x>0 && y>0 && t.phi<0) t.phi+=2*PI;
+	*/
+	t.nhits=nafte;
+	theHoughCandidateVector_.push_back(t);
+#ifdef DO_DRAW
+	std::vector< std::pair<double,double> > hfbins;hfbins.clear();
+
+        std::pair<double,double> p(theta,r);//theHoughPrecise_->getTheta(imax),theHoughPrecise_->getR(jmax));
+	hfbins.push_back(p);
+
+
+
+	// if (theHoughPrecise_->getVoteMax()<3) {delete htp;continue;}
+	//if (draw) theHoughPrecise_->draw(&rootHandler_);
+	//theHoughPrecise_->findMaximumBins(hfbins,3);
+        theHoughPrecise_->draw(theRootHandler_,&hfbins);
+#endif	  
+	//delete htp;
+      }
+
+}
+
+void GenericAnalysis::alternativeAssociate()
+{
+ngoodmc_=0;
+  nmiss_=0;
+  nfake_=0;
+  theAssociatedTracks_.clear();
+  theFakeTracks_.clear();
+   for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
+    {
+	
+      double pth=(*ihbp).pt;
+      double phih=(*ihbp).phi;
+      //printf("  Candiddate Hough Track %f %f %d \n",pth,phih,(*ihbp).nhits);
+      
+      //if (pth<thePtCut_*0.9) continue;
+      
+      double dphmin=9999.;double dptmin=9999.,errmin=9999.;
+      std::map<int32_t,mctrack_t>::iterator ismin=theMCMap_.end();
+          		   				
+      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+	  {
+	    double dph=tan(im->second.phi-phih);						
+	    double dpt=(im->second.pt-pth);
+	    double maxdev=0.15*pth;
+	    if ((*ihbp).pterr>maxdev) maxdev=(*ihbp).pterr;
+	    if (abs(dph)>5E-2) continue;
+	    if (abs(dpt)>maxdev) continue;
+	    //if ((im->second.pt-pth)>(*ihbp).pterr) continue;
+	    if (abs(dpt)<errmin)
+	      {
+		dptmin=abs(dpt);
+		dphmin=abs(dph);
+		errmin=abs(dpt);
+		ismin=im;
+	      }
+	
+	  }
+      if (ismin!=theMCMap_.end())
+	{
+
+	  mctrack_t& tk=(*ihbp);
+	  //DEBUG_PRINT(logFile_,"==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),theAssociatedTracks_.size());
+	  double err_ass=9999.;
+	  std::vector<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
+	  bool found=false;
+	  for (std::vector <mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia<theAssociatedTracks_.end();)
+	    {
+	      double dph=tan(ismin->second.phi-(*ia).phi);						
+	      double dpt=(ismin->second.pt-(*ia).pt)/(*ia).pt;
+	      if (abs(dph)>5E-2) {ia++;continue;}
+	      if (abs(dpt)>1.5E-1) {ia++;continue;}
+	      double err=abs(dpt);
+	      if (err<=errmin)
+		{
+		  errmin=err;
+		  found=true;
+		  ia++; continue;
+		}
+	      else
+		{
+		  //DEBUG_PRINT(logFile_,"erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
+		  theAssociatedTracks_.erase(ia);
+		}
+	    }
+	  if (!found)
+	    {
+	      theAssociatedTracks_.push_back(tk);
+
+	      // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+
+	    }
+	  ismin->second.matches++;
+	  continue;
+	}
+    
+      if (ismin==theMCMap_.end()) 
+	{
+	  
+	  // Not found in MC tracks
+	  mctrack_t& tk=(*ihbp);
+	  double err_ass=9999.;
+	  bool found=false;
+	  //  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
+	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
+	    {
+	      double dph=tan(tk.phi-(*ia).phi);						
+	      double dpt=tk.pt-(*ia).pt;
+	      //  printf("%f %f \n",abs(dph),abs(dpt)/(*ia).pt);
+	      if (abs(dph)>5E-2) {continue;}
+	      if (abs(dpt)/(*ia).pt>1.5E-1) {continue;}
+	      found=true;
+	      //printf("already associated \n");
+	      break;
+	    }
+	  if (!found && tk.pt>thePtCut_)
+	    {
+	      //printf("Adding it \n");
+	      theFakeTracks_.push_back(tk);
+
+	      // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
+
+	    }
+	  if (!found && tk.pt<thePtCut_)
+	    printf("Too low Pt to be added %f %f %d\n",tk.pt,tan(tk.phi),tk.nhits);
+	}
+      //DEBUG_PRINT(logFile_,"Tracks found (%f,%f) nearest is (%f,%f) \n",pth,phih,ismin->second.pt,ismin->second.phi);
+    }
+
+  printf(" Number of Hough candidate %d and good %d  and fake %d \n",theHoughCandidateVector_.size(),theAssociatedTracks_.size(),theFakeTracks_.size());
+  for (std::vector <mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp<theAssociatedTracks_.end();ihbp++)
+    printf("Valid Hough Track %f %f %d %f\n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).nhits,(*ihbp).rho0);
+  for (std::vector <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp<theFakeTracks_.end();ihbp++)
+    printf("-------------> Fake Hough Track %f %f %f %f \n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).phi,(*ihbp).rho0);
+  nfake_+=theFakeTracks_.size();
+  for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+    {
+      if (im->second.valid)
+	{
+	  ngoodmc_++;
+	  if (im->second.matches==0)
+	    {
+	      nmiss_++;
+	      printf("++++++ missed MC Track %f %f %f \n",im->second.pt,tan(im->second.phi),im->second.phi);
+	    }
+	   
+	}
+    }
+
+  DEBUG_PRINT(logFile_,"Good MC= %d  Missed = %d Fake = %d \n",ngoodmc_,nmiss_,nfake_);
+  printf("Stubs %d Good MC= %d  Missed = %d Fake = %d \n",theStubMap_.size(),ngoodmc_,nmiss_,nfake_);
+  sectmap_[theSector_].goodmc+=ngoodmc_;
+  sectmap_[theSector_].missed+=nmiss_;
+  sectmap_[theSector_].fake+=nfake_;
+
+  for (uint32_t isect=1;isect<40;isect++)
+    if (sectmap_[isect].goodmc>0)
+      printf("%d %d %d %d \n",isect,sectmap_[isect].goodmc,sectmap_[isect].missed,sectmap_[isect].fake);
+ 
 }

@@ -321,6 +321,7 @@ void HoughLocal::findMaxima(std::vector< std::pair<double,double> >& maxval,uint
 static TCanvas* CanvasHough=NULL;
 void HoughLocal::draw(DCHistogramHandler* h,std::vector< std::pair<uint32_t,uint32_t> > *maxval)
 {
+  std::cout<<"On entre dans draw"<<CanvasHough<<std::endl;
   if (CanvasHough==NULL)
     {
       CanvasHough=new TCanvas("CanvasHough","hough",800,900);
@@ -543,7 +544,7 @@ void HoughLocal::draw(DCHistogramHandler* h,std::vector< std::pair<double,double
       }
 	
   CanvasHough->cd(1);
-  hhtx->Draw("TEXT");
+  hhtx->Draw("COLZ");
   //hw->Draw();
   TVirtualPad* pd=CanvasHough->cd(2);
   pd->cd(1);
@@ -650,5 +651,9 @@ void HoughLocal::Convert(double theta,double r,mctrack_t *m)
   m->pt=0.3*3.8*R/100.;
   m->phi=atan(a);
   m->phi=theta-PI/2.;
+  if (m->phi<0) m->phi+=2*PI;
+  m->rho0=sqrt(TMath::Abs(R*R-xi*xi-yi*yi));
+
+
  
 }
