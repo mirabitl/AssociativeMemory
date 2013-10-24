@@ -12,6 +12,7 @@ typedef struct {
   uint32_t matches;
   uint32_t nhits;
   bool valid;
+  uint32_t id_ass;
   float pterr,phierr;
 } mctrack_t;
 
@@ -20,7 +21,7 @@ typedef struct
 {
   uint32_t id;
   float x,y,z;
-  float xp,yp,r2;
+  float xp,yp,r2,r;
   int32_t tp;
   uint16_t layer;
 } stub_t;

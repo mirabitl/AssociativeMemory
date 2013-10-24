@@ -57,11 +57,12 @@ protected:
   DCHistogramHandler* theRootHandler_;
   HOUGHLOCAL* theHoughLow_;
   HOUGHLOCAL* theHoughPrecise_;
+  HOUGHLOCAL* theHoughR_;
   uint32_t ngoodmc_,nmiss_,nfake_;
   float thePtCut_,theNDelta_;
   uint32_t theNBinRho_;
   FILE* logFile_;
-  bool barrel,endcap;
+  bool barrel,endcap,inter;
   std::map<uint32_t,sectinfo> sectmap_;
   uint32_t theSector_;
 };

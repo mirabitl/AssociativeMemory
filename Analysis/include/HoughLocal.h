@@ -32,6 +32,7 @@ public:
 	static void Convert(double theta,double r,mctrack_t *m);
 
 	void addStub(stub_t s);
+	void addRStub(stub_t s);
 	// Inline getters
 	inline double getThetaBin(){return  theThetaBin_;}
 	inline double getRBin(){return theRBin_;}

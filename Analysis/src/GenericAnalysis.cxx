@@ -21,6 +21,7 @@ GenericAnalysis::GenericAnalysis() :thePtCut_(2.0),theNBinRho_(192),theNDelta_(1
 {
   theHoughLow_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
   theHoughPrecise_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
+  theHoughR_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
   theRootHandler_=DCHistogramHandler::instance();
   std::string sbase="/tmp/output";
   std::string logfilename="/tmp/output.log";
@@ -127,6 +128,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
       std::pair<uint32_t,sectinfo> p(isect,s);
       sectmap_.insert(p);
     }
+  n_entries=1000;
   for(int evtnum=1;evtnum<n_entries;evtnum++)
     {
 
@@ -149,13 +151,15 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
       for (uint32_t isect=1;isect<57;isect++)
 	{
-	  if (isect!=1 && isect!=5) continue;
-	  endcap= (isect<8 || isect>=48);
+	  if (isect!=9 && isect!=15 && isect!=43) continue;
+	  //if (isect!=1  && isect!=5 && isect!=53) continue;
+	  //if (isect!=16  && isect!=25 && isect!=43) continue;
+	  endcap= (isect<16 || isect>=40);
 	  barrel=!endcap;
 	  if (endcap)
 	    {
 	      theNBinRho_=160;
-	      theNDelta_=2.0;
+	      theNDelta_=2.5;
 	    }
 	  else
 	    {
@@ -163,6 +167,8 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      theNDelta_=1.5;
 
 	    }
+	  inter= (endcap && isect>=8) || (endcap && isect<48);
+	  if (inter) {barrel=true;endcap=false;}
       theStubMap_.clear();
       theMCMap_.clear();
       theSector_=isect;
@@ -204,6 +210,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  s.y=stub_y->at(hitIndex);
 		  s.z=stub_z->at(hitIndex);
 		  s.r2=s.x*s.x+s.y*s.y;;
+		  s.r=sqrt(s.r2);
 		  s.xp=s.x/s.r2;
 		  s.yp=s.y/s.r2;
 		  s.tp=stub_tp->at(hitIndex);
@@ -290,6 +297,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		      s.y=stub_y->at(hitIndex);
 		      s.z=stub_z->at(hitIndex);
 		      s.r2=s.x*s.x+s.y*s.y;;
+		      s.r=sqrt(s.r2);
 		      s.xp=s.x/s.r2;
 		      s.yp=s.y/s.r2;
 		      s.tp=stub_tp->at(hitIndex);
@@ -386,8 +394,11 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	if (ngood==0) continue;
 	event_hough();
 	alternativeAssociate();
+	basicHistos();
 	}
     }
+  std::string rfile="output_histos.root";
+  theRootHandler_->writeHistograms(rfile);
 
 }
 void GenericAnalysis::FillMapGuillaumeNtuple(std::string fname)
@@ -744,16 +755,41 @@ void GenericAnalysis::basicHistos()
   TH1F* hptgoodfound=(TH1F*) theRootHandler_->GetTH1("Ptgoodfound");
   TH1F* hphigood=(TH1F*) theRootHandler_->GetTH1("Phigood");
   TH1F* hphigoodfound=(TH1F*) theRootHandler_->GetTH1("Phigoodfound");
+  TH1F* hdpt=(TH1F*) theRootHandler_->GetTH1("dpt");
+  TH1F* hdptrel=(TH1F*) theRootHandler_->GetTH1("dptrel");
+  TH1F* hdphi=(TH1F*) theRootHandler_->GetTH1("dphi");
   TH2F* hdptnear_pth = (TH2F*) theRootHandler_->GetTH2("Dptnear_pth");
+  TH2F* hptgen_pth = (TH2F*) theRootHandler_->GetTH2("ptgen_pth");
   TH2F* hdptonear_pth = (TH2F*) theRootHandler_->GetTH2("Dptonear_pth");
   TH2F* hdphinear_phih = (TH2F*) theRootHandler_->GetTH2("Dphinear_phi_h");
   if (hptgood==NULL)
     {
-      hptgood=(TH1F*)theRootHandler_->BookTH1("Ptgood",500,0.5,50.);
-      hptgoodfound=(TH1F*)theRootHandler_->BookTH1("Ptgoodfound",500,0.5,50.);
-      hphigood=(TH1F*)theRootHandler_->BookTH1("Phigood",200,0.,2*PI);
-      hphigoodfound=(TH1F*)theRootHandler_->BookTH1("Phigoodfound",200,0.,2*PI);
+      hptgood=(TH1F*)theRootHandler_->BookTH1("Ptgood",50,0.,50.);
+      hptgoodfound=(TH1F*)theRootHandler_->BookTH1("Ptgoodfound",50,0.,50.);
+      hphigood=(TH1F*)theRootHandler_->BookTH1("Phigood",100,0.,2*PI);
+      hphigoodfound=(TH1F*)theRootHandler_->BookTH1("Phigoodfound",100,0.,2*PI);
+      hdpt=(TH1F*)theRootHandler_->BookTH1("dpt",200,-10.,10.);
+      hdptrel=(TH1F*)theRootHandler_->BookTH1("dptrel",200,-0.5,0.5);
+      hdphi=(TH1F*)theRootHandler_->BookTH1("dphi",200,-0.2,0.2);
+      hdptnear_pth= (TH2F*) theRootHandler_->BookTH2("Dptnear_pth",50,0.,50.,100,-10.,10.);
+      hptgen_pth= (TH2F*) theRootHandler_->BookTH2("ptgen_pth",50,0.,50.,50,0.,50.);
       
+    }
+  for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+    if (im->second.valid)
+      {
+	hptgood->Fill(im->second.pt);
+	if (im->second.matches) hptgoodfound->Fill(im->second.pt);
+	hphigood->Fill(im->second.phi);
+	if (im->second.matches) hphigoodfound->Fill(im->second.phi);
+      }
+  for (std::vector<mctrack_t>::iterator it=theAssociatedTracks_.begin();it!=theAssociatedTracks_.end();it++)
+    {
+      hptgen_pth->Fill(it->pt,theMCMap_[it->id_ass].pt);
+      hdptnear_pth->Fill(it->pt,it->pt-theMCMap_[it->id_ass].pt);
+      hdpt->Fill(it->pt-theMCMap_[it->id_ass].pt);
+      hdptrel->Fill((it->pt-theMCMap_[it->id_ass].pt)/it->pt);
+      hdphi->Fill(it->phi-theMCMap_[it->id_ass].phi);
     }
 }
 
@@ -1029,7 +1065,7 @@ void GenericAnalysis::associate()
   sectmap_[theSector_].missed+=nmiss_;
   sectmap_[theSector_].fake+=nfake_;
 
-  for (uint32_t isect=1;isect<40;isect++)
+  for (uint32_t isect=1;isect<57;isect++)
     if (sectmap_[isect].goodmc)
     printf("%d %d %d %d \n",isect,sectmap_[isect].goodmc,sectmap_[isect].missed,sectmap_[isect].fake);
 }
@@ -1041,6 +1077,7 @@ void GenericAnalysis::event_hough()
   theFakeTracks_.clear();
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
   theHoughLow_->initialise(-PI/2,PI/2,-0.05,0.05,128,theNBinRho_); //160 avant
+  theHoughR_->initialise(-PI/2,PI/2,-150.,150.,64,64); //160 avant
   for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
     {
       //theHoughLow_->fill(is->second.x,is->second.y);
@@ -1120,6 +1157,7 @@ void GenericAnalysis::event_hough()
 	//printf("%lx \n",planhit);
 	if (!planes[5] && endcap) continue;
 	if ( barrel && (planhit&0xa0)==0 && (planhit&0xc0)==0 && (planhit&0x60)==0) continue;
+	if ( inter && (planhit&0xa0)==0 && (planhit&0xc0)==0 && (planhit&0x60)==0) continue;
 	//if (!((planes[5]&&planes[6]) || (planes[7]&&planes[6])||(planes[5]&&planes[7])) )continue;
 	
 	
@@ -1135,7 +1173,7 @@ void GenericAnalysis::event_hough()
 	if (pth>=30 ) nbinf=256;//384
 
 	nbinf /=1; //2 avant
-	//if (endcap) nbinf/=2;
+	if (endcap) nbinf/=2;
 	uint32_t nbinr=nbinf;
 	if (vid.size()>20) nbinf=2*nbinf;
 
@@ -1238,7 +1276,9 @@ void GenericAnalysis::event_hough()
 	  if (planez[ib]!=0) nafte++;
 	printf("%d %lx \n",nafte,planez.to_ulong());
         if (nafte<5) { continue;} //@@@@ was 4
+	if (endcap && planez[5]==0) continue;
 	if (barrel && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
+	if (inter && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
 
 	mctrack_t t;
 	
@@ -1336,6 +1376,7 @@ void GenericAnalysis::analyzePrecise()
         if (nafte<4) { continue;} //@@@@ was 4
 	if (!planez[5] && endcap) continue;
 	if (barrel && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
+	if (inter && (!((planez[5]&&planez[6]) || (planez[7]&&planez[6])||(planez[5]&&planez[7])) ))continue;
 	bool notmax=false;
 	for (int ic=-1;ic<=1;ic++)
 	  for (int jc=-1;jc<=1;jc++)
@@ -1350,6 +1391,12 @@ void GenericAnalysis::analyzePrecise()
 	    }
 	if (notmax) continue;
 	
+
+	theHoughR_->clear();
+	for (std::vector<uint32_t>::iterator it=v.begin();it!=v.end();it++)
+	  theHoughR_->addRStub(theStubMap_[(*it)]);
+	//theHoughR_->draw(theRootHandler_);
+	if (theHoughR_->getVoteMax()<4) continue;
 	
 	uint neigh=0;
 	double theta=0,r=0;
@@ -1367,8 +1414,8 @@ void GenericAnalysis::analyzePrecise()
 	      theta+=(theHoughPrecise_->getTheta(ii+ic))*theHoughPrecise_->getHoughImage(ii+ic,jj+jc);
 
 
-	      std::vector<uint32_t> v=theHoughPrecise_->getHoughMap(ii+ic,jj+jc);
-	      for (std::vector<uint32_t>::iterator itv=v.begin();itv!=v.end();itv++)
+	      std::vector<uint32_t> vp=theHoughPrecise_->getHoughMap(ii+ic,jj+jc);
+	      for (std::vector<uint32_t>::iterator itv=vp.begin();itv!=vp.end();itv++)
 		if (std::find(vn.begin(),vn.end(),(*itv))==vn.end())
 		  vn.push_back((*itv));
 
@@ -1407,6 +1454,7 @@ void GenericAnalysis::analyzePrecise()
 	*/
 	t.nhits=nafte;
 	theHoughCandidateVector_.push_back(t);
+		
 #ifdef DO_DRAW
 	std::vector< std::pair<double,double> > hfbins;hfbins.clear();
 
@@ -1491,6 +1539,7 @@ ngoodmc_=0;
 	    }
 	  if (!found)
 	    {
+	      tk.id_ass=ismin->first;
 	      theAssociatedTracks_.push_back(tk);
 
 	      // DEBUG_PRINT(logFile_,"Adding %g M %g Valid Track %d Pt  %f %f  tphi %f %f \n",err_ass,errmin,ismin->second.id,ismin->second.pt,tk.pt,tan(ismin->second.phi),tan(tk.phi));
@@ -1559,7 +1608,7 @@ ngoodmc_=0;
   sectmap_[theSector_].missed+=nmiss_;
   sectmap_[theSector_].fake+=nfake_;
 
-  for (uint32_t isect=1;isect<40;isect++)
+  for (uint32_t isect=1;isect<57;isect++)
     if (sectmap_[isect].goodmc>0)
       printf("%d %d %d %d \n",isect,sectmap_[isect].goodmc,sectmap_[isect].missed,sectmap_[isect].fake);
  

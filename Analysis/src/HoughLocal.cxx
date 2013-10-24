@@ -64,6 +64,28 @@ void HoughLocal::addStub(stub_t s)
       if (theHoughImage_[i][ir]>theVoteMax_) theVoteMax_=theHoughImage_[i][ir];
     }
 }
+
+void HoughLocal::addRStub(stub_t s)
+{
+  //theVoteMax_=0;
+  theX_.push_back(s.z);
+  theY_.push_back(s.r);
+	
+  //printf("x %f y %f \n",zp,xp);
+  for (uint32_t i=0;i<theNbinTheta_;i++)
+    {
+      double r = s.z*theCos_[i]+s.r*theSin_[i];
+      //printf("R %f Cos %f \n",r,theCos_[i]);
+      if (r>theRMax_ || r<theRMin_) continue;
+      uint32_t ir=int(floor((r-theRMin_)/theRBin_));
+      
+      theHoughMap_[i][ir].push_back(s.id);
+      theHoughImage_[i][ir]+=1;
+					
+      if (theHoughImage_[i][ir]>theVoteMax_) theVoteMax_=theHoughImage_[i][ir];
+    }
+}
+
 void HoughLocal::fill(double z, double x)
 {
 	
