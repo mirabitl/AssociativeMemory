@@ -151,9 +151,9 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
       for (uint32_t isect=1;isect<57;isect++)
 	{
-	  if (isect!=9 && isect!=15 && isect!=43) continue;
+	  //if (isect!=9 && isect!=15 && isect!=43) continue;
 	  //if (isect!=1  && isect!=5 && isect!=53) continue;
-	  //if (isect!=16  && isect!=25 && isect!=43) continue;
+	  if (isect!=16  && isect!=25 && isect!=37) continue;
 	  endcap= (isect<16 || isect>=40);
 	  barrel=!endcap;
 	  if (endcap)
@@ -167,7 +167,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      theNDelta_=1.5;
 
 	    }
-	  inter= (endcap && isect>=8) || (endcap && isect<48);
+	  inter= (isect>=8 && isect<16) || (isect>=40 && isect<48);
 	  if (inter) {barrel=true;endcap=false;}
       theStubMap_.clear();
       theMCMap_.clear();
@@ -367,7 +367,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	    if (abs(im->second.rho0)>0.5) continue;	  
 	    if (np>=5 &&im->second.pt>thePtCut_ && im->second.nhits>=5) 
 	      {
-		printf("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.rho0);
+		printf("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.z0);
 		if (np>im->second.maxstubs) 	im->second.maxstubs=np;
 		if (im->second.valid)					
 		  continue;
@@ -758,6 +758,7 @@ void GenericAnalysis::basicHistos()
   TH1F* hdpt=(TH1F*) theRootHandler_->GetTH1("dpt");
   TH1F* hdptrel=(TH1F*) theRootHandler_->GetTH1("dptrel");
   TH1F* hdphi=(TH1F*) theRootHandler_->GetTH1("dphi");
+  TH1F* hdz=(TH1F*) theRootHandler_->GetTH1("dz");
   TH2F* hdptnear_pth = (TH2F*) theRootHandler_->GetTH2("Dptnear_pth");
   TH2F* hptgen_pth = (TH2F*) theRootHandler_->GetTH2("ptgen_pth");
   TH2F* hdptonear_pth = (TH2F*) theRootHandler_->GetTH2("Dptonear_pth");
@@ -771,6 +772,7 @@ void GenericAnalysis::basicHistos()
       hdpt=(TH1F*)theRootHandler_->BookTH1("dpt",200,-10.,10.);
       hdptrel=(TH1F*)theRootHandler_->BookTH1("dptrel",200,-0.5,0.5);
       hdphi=(TH1F*)theRootHandler_->BookTH1("dphi",200,-0.2,0.2);
+      hdz=(TH1F*)theRootHandler_->BookTH1("dz",200,-20.,20.);
       hdptnear_pth= (TH2F*) theRootHandler_->BookTH2("Dptnear_pth",50,0.,50.,100,-10.,10.);
       hptgen_pth= (TH2F*) theRootHandler_->BookTH2("ptgen_pth",50,0.,50.,50,0.,50.);
       
@@ -790,6 +792,7 @@ void GenericAnalysis::basicHistos()
       hdpt->Fill(it->pt-theMCMap_[it->id_ass].pt);
       hdptrel->Fill((it->pt-theMCMap_[it->id_ass].pt)/it->pt);
       hdphi->Fill(it->phi-theMCMap_[it->id_ass].phi);
+      hdz->Fill(it->z0-theMCMap_[it->id_ass].z0);
     }
 }
 
@@ -1077,7 +1080,7 @@ void GenericAnalysis::event_hough()
   theFakeTracks_.clear();
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
   theHoughLow_->initialise(-PI/2,PI/2,-0.05,0.05,128,theNBinRho_); //160 avant
-  theHoughR_->initialise(-PI/2,PI/2,-150.,150.,64,64); //160 avant
+  theHoughR_->initialise(-PI/2,PI/2,-150.,150.,32,32); //160 avant
   for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
     {
       //theHoughLow_->fill(is->second.x,is->second.y);
@@ -1397,7 +1400,22 @@ void GenericAnalysis::analyzePrecise()
 	  theHoughR_->addRStub(theStubMap_[(*it)]);
 	//theHoughR_->draw(theRootHandler_);
 	if (theHoughR_->getVoteMax()<4) continue;
-	
+	double z0=-110.;
+	 for (uint32_t ir=0;ir<theHoughR_->getNbinTheta();ir++)
+	   for (uint32_t jr=0;jr<theHoughR_->getNbinR();jr++)
+	     {
+	       if (theHoughR_->getHoughImage(ir,jr)==theHoughR_->getVoteMax())
+		 {
+		   double thetar=theHoughR_->getTheta(ir);
+		   double rr=theHoughR_->getR(jr);
+		   double ar=-1./tan(thetar);
+		   double br=rr/sin(thetar);
+		   //printf("HOUGH R  %d %f %f %f \n", theHoughR_->getHoughImage(ir,jr),ar,br,-br/ar);
+		   z0=-br/ar;
+		   //theHoughR_->draw(theRootHandler_);
+		   break;
+		 }
+	     }
 	uint neigh=0;
 	double theta=0,r=0;
 	std::vector<uint32_t> vn;vn.clear();
@@ -1453,6 +1471,7 @@ void GenericAnalysis::analyzePrecise()
 	if (x>0 && y>0 && t.phi<0) t.phi+=2*PI;
 	*/
 	t.nhits=nafte;
+	t.z0=z0;
 	theHoughCandidateVector_.push_back(t);
 		
 #ifdef DO_DRAW

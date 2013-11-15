@@ -2,6 +2,7 @@
 #include <TLine.h>
 #include <TEllipse.h>
 #include <sstream>
+#include <algorithm>
 HoughLocal::HoughLocal(double thmin,double thmax,double rmin,double rmax,uint32_t nbintheta,uint32_t nbinr) : theThetaMin_(thmin),theThetaMax_(thmax),theRMin_(rmin),theRMax_(rmax),theNbinTheta_(nbintheta),theNbinR_(nbinr)
 {
   theThetaBin_=(theThetaMax_-theThetaMin_)*1./theNbinTheta_;
@@ -369,8 +370,21 @@ void HoughLocal::draw(DCHistogramHandler* h,std::vector< std::pair<uint32_t,uint
 
   if (hx==NULL)
     {
+      std::vector<double>::iterator ixmax = std::max_element(theX_.begin(), theX_.end());
+      std::vector<double>::iterator ixmin = std::min_element(theX_.begin(), theX_.end());
+      std::vector<double>::iterator iymax = std::max_element(theY_.begin(), theY_.end());
+      std::vector<double>::iterator iymin = std::min_element(theY_.begin(), theY_.end());
+
+      double xsize=(*ixmax)-(*ixmin);
+      double ysize=(*iymax)-(*iymin);
+      
+      double xmin=(*ixmin)-0.05*xsize;
+      double ymin=(*iymin)-0.05*ysize;
+      double xmax=(*ixmax)+0.05*xsize;
+      double ymax=(*iymax)+0.05*ysize;
+
       hx =(TH2F*)h->BookTH2("LocalInverse",100,-0.05,0.05,100,-0.05,0.05);
-      hox =(TH2F*)h->BookTH2("LocalImage",800,-150.,150.,800,-150.,150);
+      hox =(TH2F*)h->BookTH2("LocalImage",400,-150.,150,400,-150.,150);
       hx->SetMarkerColor(4);
       hx->SetMarkerSize(.2);
       hx->SetMarkerStyle(25);
