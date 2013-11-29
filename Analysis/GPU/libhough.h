@@ -1,11 +1,12 @@
 #ifndef _LIBHOUGH_H
 #define _LIBHOUGH_H
 #define GPU_MAX_STUB 4096
-#define GPU_MAX_THETA 128
+#define GPU_MAX_THETA 256
 #define GPU_MAX_RHO 256
 #define GPU_MAX_RHO_WORD 16
 #define GPU_MAX_STUB_BIN 16
 #define GPU_MAX_CAND (GPU_MAX_THETA*GPU_MAX_RHO)
+#define GPU_MAX_REG 100 
 #define PI 3.141592653589793
 #define RMIN -21.05
 #define RMAX  21.05
@@ -29,11 +30,15 @@ typedef struct {
   unsigned int* d_layer;
   // Device image
   unsigned int* d_images;
+  short* d_val;
+  short* h_val;
   // Device hough
   unsigned int* d_hough;
   unsigned int* d_hough_map;
   unsigned int* d_hough_layer;
 
+  unsigned int* d_temp;
+  unsigned int* h_temp;
   // device points
   unsigned int* d_cand;
   // Host points
@@ -59,12 +64,14 @@ extern "C" void fillPositionHough(houghParam* p,float* h_x,float* h_y,float* h_z
 extern "C" void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z);
 extern "C" void fillLayerHough(houghParam* p,unsigned int* h_layer);
 
-extern "C" void copyPositionHough(houghParam* pi,int icand,houghParam* po);
+extern "C" void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression);
 extern "C" void doRegression(houghParam* p,unsigned int mode=0);
-extern "C" void processHough(houghParam* p,unsigned int cut,unsigned int mode=0);
+extern "C" void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode=0);
 extern "C" void copyHoughImage(houghParam* p,unsigned int* h_hough);
 extern "C" void copyHoughLayer(houghParam* p,unsigned int* h_hough);
 
+extern "C" void clean(houghParam* p);
+extern "C" void clearHough(houghParam* p);
 extern "C" void dump(houghParam* p);
 extern "C"  void initialiseTimer();
 extern "C" void startTimer();

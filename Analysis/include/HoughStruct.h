@@ -1,5 +1,6 @@
 #ifndef HoughStruct_def_
 #define HoughStruct_def_
+#include <stdint.h>
 typedef struct {
   int32_t id;
   double phi;
@@ -14,6 +15,7 @@ typedef struct {
   bool valid;
   uint32_t id_ass;
   float pterr,phierr;
+  float r,theta;
 } mctrack_t;
 
 

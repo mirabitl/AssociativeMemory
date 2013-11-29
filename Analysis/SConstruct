@@ -62,13 +62,13 @@ INCLUDES.append(commands.getoutput("python -c 'import distutils.sysconfig as con
 #flags
 CPPFLAGS=commands.getoutput("$ROOTSYS/bin/root-config --cflags").split(" ") + ["-O4","-DLINUX", "-DREENTRANT" ,"-Dlinux", "-DLITTLE_ENDIAN__", "-Dx86","-DDAQ_VERSION_2","-Wno-deprecated"] 
 #if (USE_OPENCV):
-#	CPPFLAGS.append(commands.getoutput("pkg-config --cflags opencv").split(" "));
-#	CPPFLAGS.append("-DUSE_OPENCV")
+#        CPPFLAGS.append(commands.getoutput("pkg-config --cflags opencv").split(" "));
+#        CPPFLAGS.append("-DUSE_OPENCV")
 #if (USE_CIMG):
-#	CPPFLAGS.append("-Dcimg_use_vt100")
-#	CPPFLAGS.append("-DUSE_CIMG")
+#        CPPFLAGS.append("-Dcimg_use_vt100")
+#        CPPFLAGS.append("-DUSE_CIMG")
 if (USE_CULA):
-	CPPFLAGS.append("-DUSE_CULA")
+        CPPFLAGS.append("-DUSE_CULA")
 #Library ROOT + some of XDAQ + DB 
 ROOT_LIBS=[lib[2:] for lib in filter(lambda x: (x[:2]=="-l"), commands.getoutput("$ROOTSYS/bin/root-config --libs --ldflags --glibs").split(" "))
 ]
@@ -94,9 +94,9 @@ CUDA_LIBPATH=[os.getenv("CULA_LIB_PATH_64"),"/usr/local/cula/lib"]
 LIBRARIES=ROOT_LIBS+['pthread','X11','boost_system','boost_thread']
 
 if (USE_CULA or USE_OPENCV):
-	LIBRARIES=LIBRARIES+CUDA_LIBS
+        LIBRARIES=LIBRARIES+CUDA_LIBS
 #if (USE_OPENCV):
-#	LIBRARIES=LIBRARIES+OCV_LIBS
+#        LIBRARIES=LIBRARIES+OCV_LIBS
 
 
 
@@ -106,7 +106,7 @@ LIBRARY_PATHS.append(commands.getoutput("python -c 'import distutils.sysconfig a
 #LIBRARY_PATHS.append(os.path.join(os.getenv("LCIODIR"),"lib"))
 
 if (USE_CULA or USE_OPENCV):
-	LIBRARY_PATHS=LIBRARY_PATHS+CUDA_LIBPATH
+        LIBRARY_PATHS=LIBRARY_PATHS+CUDA_LIBPATH
 
 
 #link flags
@@ -135,7 +135,7 @@ LIBRARY_SOURCES=Glob("#src/*.cxx")
 #LIBRARY_SOURCES.append(TRACKER_SRC_DIR+"/LDAShare.cc")
 
 for i in LIBRARY_SOURCES:
-  print i 	 
+  print i          
 #Shared library
 AMEvent=env.Program("AMEvent",source=LIBRARY_SOURCES,LIBPATH=LIBRARY_PATHS,LIBS=LIBRARIES)
 
@@ -154,6 +154,3 @@ Default([AMEvent])
 #env.Install("/opt/dhcal/lib",DIF)
 
 #env.Alias('install', ["/opt/local/lib"])
-
-
-

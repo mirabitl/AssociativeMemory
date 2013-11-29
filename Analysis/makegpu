@@ -1,5 +1,3 @@
-
-
 GenericAnalysisCPU.o: src/GenericAnalysis.cxx include/GenericAnalysis.h include/HoughLocal.h  include/HoughStruct.h
 	g++ -c -UUSE_CUDA -o GenericAnalysisCPU.o  -I include -I$(ROOTSYS)/include  src/GenericAnalysis.cxx
 GenericAnalysisGPU.o: src/GenericAnalysis.cxx include/GenericAnalysis.h include/HoughLocal.h  include/HoughStruct.h

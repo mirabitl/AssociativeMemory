@@ -12,7 +12,7 @@
 #define HOUGHLOCAL HoughLocal1
 #include "HoughLocal1.h"
 #endif
-#define INFO_PRINT_ENABLED 1
+#undef INFO_PRINT_ENABLED 
 #if DEBUG_PRINT_ENABLED
 #define INFO_PRINT_ENABLED 1
 #define DEBUG_PRINT fprintf
@@ -20,17 +20,28 @@
 #define DEBUG_PRINT(format, args...) ((void)0)
 #endif
 #if INFO_PRINT_ENABLED
+#define WARN_PRINT_ENABLED 1
 #define INFO_PRINT fprintf
 #else
 #define INFO_PRINT(format, args...) ((void)0)
 #endif
-
+#define WARN_PRINT_ENABLED 1
+#if WARN_PRINT_ENABLED
+#define WARN_PRINT printf
+#else
+#define WARN_PRINT(format, args...) ((void)0)
+#endif
+#ifdef USE_CUDA
+#include "libhough.h"
+#endif
 typedef struct
 {
   uint32_t goodmc;
   uint32_t missed;
   uint32_t fake;
 } sectinfo;
+
+
 
 class GenericAnalysis
 {
@@ -43,9 +54,13 @@ public:
   void fill_histos();
   void associate();
   void event_hough();
-  void basicHistos();
+  void basicHistos(int32_t i);
   void analyzePrecise();
   void alternativeAssociate();
+  void PrintSectorMap();
+#ifdef USE_CUDA
+  void drawph(houghParam* p,DCHistogramHandler* r);
+#endif
 protected:
   std::map<uint32_t,stub_t> theStubMap_;
   std::map<int32_t,mctrack_t> theMCMap_;
