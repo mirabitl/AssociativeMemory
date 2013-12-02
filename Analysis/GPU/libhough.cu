@@ -41,6 +41,7 @@
 #include "libhough.h"
 
 #undef OLD
+#undef OLDMAP
 
 //declare constant memory
 __constant__ float limits[6];
@@ -70,8 +71,10 @@ cleanUI1Kernel(unsigned int *d_hough,unsigned int *d_hough_layer,unsigned int *d
   const unsigned nbinrho=int(limits[5]);
   d_hough_layer[ith*nbinrho+ir]=0;
   d_hough[ith*nbinrho+ir]=0;
+#ifdef OLDMAP
   for (int i=0;i<GPU_MAX_STUB_BIN;i++)
     d_hough_map[ith*nbinrho*GPU_MAX_STUB_BIN+ir*GPU_MAX_STUB_BIN+i]=0;
+#endif
 }
 __global__ void
 cleanFKernel(float *d_layer)
@@ -287,10 +290,11 @@ fillHoughKernel(short *d_val,unsigned int* d_layer,unsigned int* d_hough,unsigne
     {
       atomicAdd(&d_hough[ith*nbinrho+ir],1);
       atomicOr(&d_hough_layer[ith*nbinrho+ir],(1<<d_layer[is]));
+#ifdef OLDMAP
       int iwm=is/32;
       int ibm=is%32;
       atomicOr(&d_hough_map[ith*nbinrho*GPU_MAX_STUB_BIN+ir*GPU_MAX_STUB_BIN+iwm],(1<<ibm));
-
+#endif
     }
 
   __syncthreads();
@@ -315,8 +319,10 @@ sumHoughPointKernel(unsigned int nstub,unsigned int* d_images,unsigned int* d_ho
       PT=1./2./fabs(r)*0.3*3.8/100.;
       d_hough[ith*nr+ir]=0;
       d_hough_layer[ith*nr+ir]=0;
+#ifdef OLDMAP
       for (int iwm=0;iwm<GPU_MAX_STUB_BIN;iwm++)
 	d_hough_map[ith*nr*GPU_MAX_STUB_BIN+ir*GPU_MAX_STUB_BIN+iwm]=0;
+#endif
     }
   if (PT>1.4 ) {
 
@@ -333,9 +339,11 @@ sumHoughPointKernel(unsigned int nstub,unsigned int* d_images,unsigned int* d_ho
 	{
 	  d_hough[ith*nr+ir]+=1;
 	  d_hough_layer[ith*nr+ir]|=(1<<d_layer[is]);
+#ifdef OLDMAP
 	  int iwm=is/32;
 	  int ibm=is%32;
 	  d_hough_map[ith*nr*GPU_MAX_STUB_BIN+ir*GPU_MAX_STUB_BIN+iwm]|= (1<<ibm);
+#endif
 	}
     }
   pointerIndex=0;
@@ -512,6 +520,76 @@ copyNeighbourKernel(unsigned int ith,unsigned int ir,unsigned int ntheta,unsigne
 }
 
 __global__ void
+copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short* d_val,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,unsigned int* d_temp)
+{
+  const unsigned int ib=threadIdx.x;
+
+  //__threadfence();
+  if (d_val[ib*nbintheta+ith]==ir )
+    {
+      int iwm=ib/32;
+      int ibm=ib%32;
+      if (!(d_temp[iwm] & (1<<ibm)))
+	{
+	  d_temp[iwm]|=(1<<ibm); // no problem done bin/bin so one stub cannot be set in //
+      float fid=atomicAdd(&d_reg[20],1.);
+      unsigned int id=int(fid);
+      //d_cand[0]+=1;
+      if (id<GPU_MAX_STUB)
+	{
+	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
+	  unsigned int l=di_layer[ib]; 
+	  d_xo[id]=x;
+	  d_yo[id]=y;
+	  d_ro[id]=r;
+	  d_zo[id]=z;
+	  do_layer[id]=l;
+	  if (regression)
+	    {
+	      atomicAdd(&d_reg[50],x);
+	      atomicAdd(&d_reg[51],x*x);
+	      atomicAdd(&d_reg[52],x*y);
+	      atomicAdd(&d_reg[53],y);
+	      atomicAdd(&d_reg[54],1.);
+	      if ((l==5) || (l==6) || (l==7))
+		{
+		  atomicAdd(&d_reg[55],z);
+		  atomicAdd(&d_reg[56],z*z);
+		  atomicAdd(&d_reg[57],z*r);
+		  atomicAdd(&d_reg[58],r);
+		  atomicAdd(&d_reg[59],1.);
+		}
+	    }
+	}
+	}
+    }
+  //if (ith==10 && ir==10) d_cand[0]=ith*gridDim.x+ir;
+  __syncthreads();
+  //__threadfence();
+  //if (ith==1 && ir==1)
+  //  d_cand[0]=pointerIndex;
+  if (ib==1 && regression)
+    {
+      localRegression(d_xo[0],d_yo[0],&d_reg[50],&d_reg[60]);
+      localRegression(d_xo[0],d_yo[0],&d_reg[55],&d_reg[70]);
+    }
+}
+
+
+__global__ void
+clearFloatKernel(float* d_float)
+{
+  d_float[threadIdx.x]=0;
+  __syncthreads();
+}
+__global__ void
+clearUIKernel(unsigned int* d_float)
+{
+  d_float[threadIdx.x]=0;
+  __syncthreads();
+}
+
+__global__ void
 copyPositionKernel(unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression)
 {
   const unsigned int ib=threadIdx.x;
@@ -589,7 +667,9 @@ void createHough(houghParam* p)
 #endif
    checkCudaErrors(cudaMalloc((void **) &p->d_hough,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(unsigned int) ));
    checkCudaErrors(cudaMalloc((void **) &p->d_hough_layer,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(unsigned int) ));
+#ifdef OLDMAP
    checkCudaErrors(cudaMalloc((void **) &p->d_hough_map,GPU_MAX_THETA*GPU_MAX_RHO*GPU_MAX_STUB_BIN*sizeof(unsigned int) ));
+#endif
 
 }
 void clearHough(houghParam* p)
@@ -646,7 +726,9 @@ void deleteHough(houghParam* p)
   checkCudaErrors(cudaFree(p->d_images));
 #endif
   checkCudaErrors(cudaFree(p->d_hough));
+#ifdef OLDMAP
   checkCudaErrors(cudaFree(p->d_hough_map));
+#endif
   checkCudaErrors(cudaFree(p->d_hough_layer));
   checkCudaErrors(cudaFree(p->d_cand));
   checkCudaErrors(cudaFree(p->d_reg));
@@ -734,6 +816,8 @@ void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode
 {
    int ith=icand&0X3FF;
    int ir=(icand>>10)&0x3FF;
+
+#ifdef OLDMAP
    dim3  grid1(1, 1, 1);
    dim3  grid2(512, 1, 1);
 
@@ -774,7 +858,70 @@ void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode
      }
    if (regression)
      checkCudaErrors(cudaMemcpy(po->h_reg,po->d_reg,GPU_MAX_REG*sizeof(float),cudaMemcpyDeviceToHost));
+#else
+   clearFloatKernel<<<1,GPU_MAX_REG>>>(po->d_reg);
+   clearUIKernel<<<1,512>>>(po->d_temp);
 
+   if (mode == 1)
+     {
+       copyFromValKernel<<<1,pi->nstub>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+     }
+   else
+     {
+       copyFromValKernel<<<1,pi->nstub>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ith>0)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith-1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ith<pi->ntheta-1)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith+1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ith>0 && ir>0)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith-1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ir>0)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ir>0 && ith<pi->ntheta-1)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith+1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ith>0 && ir<pi->nrho-1)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith-1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ir<pi->nrho-1)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+       if (ir<pi->nrho-1 &&  ith<pi->ntheta-1)
+	 copyFromValKernel<<<1,pi->nstub>>>(ith+1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       cudaDeviceSynchronize();
+
+
+     }
+   getLastCudaError("Kernel execution failed");
+   cudaDeviceSynchronize();
+   checkCudaErrors(cudaMemcpy(po->h_reg,po->d_reg,GPU_MAX_REG*sizeof(float),cudaMemcpyDeviceToHost));
+   cudaDeviceSynchronize();
+   po->nstub=int(po->h_reg[20]);
+   //dump(po);
+   //getchar();
+
+#endif
    /*
    for (int i=50;i<60;i++)
      printf("%f ",po->h_reg[i]);

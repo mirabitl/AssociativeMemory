@@ -1,6 +1,6 @@
 #ifndef _LIBHOUGH_H
 #define _LIBHOUGH_H
-#define GPU_MAX_STUB 1024
+#define GPU_MAX_STUB 768
 #define GPU_MAX_THETA 256
 #define GPU_MAX_RHO 256
 #define GPU_MAX_RHO_WORD 16

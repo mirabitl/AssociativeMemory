@@ -152,12 +152,19 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #ifdef USE_CUDA  
   houghParam ph;
   createHough(&ph);
-
+  //getchar();
 
   houghParam phi;
   createHough(&phi);
+  // getchar();
   houghParam phreg;
   createHough(&phreg);
+  getchar();
+  houghParam phcand[32];
+  for (int i=0;i<32;i++)
+    createHough(&phcand[i]);
+  getchar();
+
   initialiseTimer();
 #endif
   // allocate host memory useless but harmless for CPU
@@ -584,9 +591,9 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  initialiseHough(&phi,gpu_nstub,nbinf,nbinr,tmi,tma,rmi,rma);	    
 			  //clearHough(&phi);
 			  copyPositionHough(&ph,pattern,&phi,0,false);
-			  //printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,phi.nstub,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
+			  // printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,phi.nstub,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
 		      
-		      //dump(&phi);
+			  //dump(&phi);
 		      //		getchar();
 			/*
 			unsigned int h_hough_l[ntheta*nrho];
@@ -599,6 +606,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #else
 		      processHough(&phi,8,5,0);
 #endif
+		      //drawph(&phi, theRootHandler_);
 		      if (phi.h_cand[0]>30)
 			{
 			printf("%d %f GeV ns =%d HighPrec %d \n",ic,PT,phi.nstub,phi.h_cand[0]);
@@ -609,7 +617,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		      // 	  printf("%d ns =%d HighPrec %d \n",ic,phi.nstub,phi.h_cand[0]);
 		      // 	  nbinf=int(nbinf*1.01);
 		      // 	  nbinr=int(nbinr*1.01);
-		      // 	  drawph(&phi, theRootHandler_);
+		      
 		      // 	}
 		      // }
 		      // while (phi.h_cand[0]>50);
@@ -785,7 +793,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      */
 	    }
 	}
-      if (evtnum%50 ==0)
+      if (evtnum%1 ==0)
 	PrintSectorMap();
     }
   printf("TotalTime %f\n",totalTime);
