@@ -1,6 +1,6 @@
 #ifndef _LIBHOUGH_H
 #define _LIBHOUGH_H
-#define GPU_MAX_STUB 1024
+#define GPU_MAX_STUB 768
 #define GPU_MAX_THETA 256
 #define GPU_MAX_RHO 256
 #define GPU_MAX_RHO_WORD 16
@@ -64,9 +64,9 @@ extern "C" void fillPositionHough(houghParam* p,float* h_x,float* h_y,float* h_z
 extern "C" void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z);
 extern "C" void fillLayerHough(houghParam* p,unsigned int* h_layer);
 
-extern "C" void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression);
+extern "C" void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression,int streamid=-1);
 extern "C" void doRegression(houghParam* p,unsigned int mode=0);
-extern "C" void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode=0);
+extern "C" void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode,int streamid=-1);
 extern "C" void copyHoughImage(houghParam* p,unsigned int* h_hough);
 extern "C" void copyHoughLayer(houghParam* p,unsigned int* h_hough);
 
@@ -77,5 +77,10 @@ extern "C"  void initialiseTimer();
 extern "C" void startTimer();
 extern "C" float stopTimer();
 extern "C" void deleteTimer();
+extern "C" void* h_malloc(unsigned int memSize);
+extern "C" void h_free(void* f);
+extern "C" void createStreams(unsigned int nb);
+extern "C" void deleteStreams(unsigned int nb);
+extern "C" void  synchronize();
 
 #endif

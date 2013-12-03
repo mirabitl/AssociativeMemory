@@ -152,19 +152,42 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #ifdef USE_CUDA  
   houghParam ph;
   createHough(&ph);
-
+  //getchar();
 
   houghParam phi;
   createHough(&phi);
+  // getchar();
   houghParam phreg;
   createHough(&phreg);
+
+  houghParam phcand[64];
+  for (int i=0;i<64;i++)
+    createHough(&phcand[i]);
+
+  createStreams(64);
   initialiseTimer();
 #endif
   // allocate host memory useless but harmless for CPU
-  float *h_x = (float *) malloc(1024*sizeof(float));
-  float *h_y = (float *) malloc(1024*sizeof(float));
-  float *h_z = (float *) malloc(1024*sizeof(float));
+#ifdef USE_CUDA
+  printf("On y va \n");
+  float *h_x=(float *) h_malloc(1024*sizeof(float));
+  float *h_y= (float *) h_malloc(1024*sizeof(float));
+  float *h_z=(float *) h_malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) h_malloc(1024*sizeof(unsigned int));
+
+  //  printf("Essai d'ecriture \n");
+  // printf("Essai d'ecriture %f \n",h_x[129]);
+  // getchar();
+  // h_x[129]=12.;
+  // printf("%f \n",h_x[129]);
+  // getchar();
+#else
+  float *h_x=(float *) malloc(1024*sizeof(float));
+  float *h_y= (float *) malloc(1024*sizeof(float));
+  float *h_z=(float *) malloc(1024*sizeof(float));
   unsigned int *h_layer=(unsigned int *) malloc(1024*sizeof(unsigned int));
+
+#endif
   float totalTime=0;
 
   for(int evtnum=1;evtnum<n_entries;evtnum++)
@@ -491,13 +514,13 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  fillLayerHough(&ph,h_layer);
 		  //clearHough(&ph);
 #ifndef POINT2
-		  processHough(&ph,4,4,0);//processHough(&ph,3,3,0);
+		  processHough(&ph,4,4,0,-1);//processHough(&ph,3,3,0);
 
 #else
 		  processHough(&ph,8,4,0);
 #endif
 		  INFO_PRINT("RMIN %f RMAX %f RBIN %f gives %d candidates Max val %d STubs %d\n",ph.rmin,ph.rmax,ph.rbin,ph.h_cand[0],ph.max_val,ph.nstub);
-
+		  //if (ph.h_cand[0]>10) continue;
 		  // if (ph.h_cand[0]>100)
 		  //   {processHough(&ph,7);
 		  //     printf("RMIN %f RMAX %f RBIN %f gives %d candidates \n",ph.rmin,ph.rmax,ph.rbin,ph.h_cand[0]);
@@ -534,7 +557,154 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  // using default comparison (operator <):
 		  //std::sort (vcand.begin(), vcand.end());
 
-		  for (int ic=0;ic<ph.h_cand[0];ic++)
+
+		      ///////////////////////////////////////////////////////
+		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		    {
+		      phcand[ic].h_reg[20]=0;
+		      int pattern=ph.h_cand[ic+1]; // vcand[ic]
+		      int ith=pattern&0X3FF;
+		      int ir=(pattern>>10)&0x3FF;
+		      //ith=(vcand[ic])&0x3FF;
+		      //ir=(vcand[ic]>>10)&0x3FF;
+		      int ns=(pattern>>20)&0x3FF;
+#ifndef POINT2
+		      if (ns<5) continue;//if (ns<3) continue;
+#else
+		      if (ns<5) continue;
+#endif
+		      double PT=1./2./TMath::Abs(GET_R_VALUE(ph,ir))*0.3*3.8/100.;
+		      if (PT<1.5) continue;
+		      //printf("%f \n",TMath::Abs(GET_R_VALUE(ph,ir)));
+		      uint32_t nbinf=64;
+		      // <5,5-10,10-30,>30
+		      if (PT<3) nbinf=56;
+		      if (PT>=3 && PT<5) nbinf=128; // 128
+		      if (PT>=5  && PT<15) nbinf=128;//192
+		      if (PT>=15 && PT<=30) nbinf=128;//256
+		      if (PT>=30 ) nbinf=128;//256
+
+		      nbinf /=1;//1 //2 avant
+		      //if (endcap) nbinf/=2;
+		      uint32_t nbinr=nbinf;
+#ifndef POINT2
+		      if (ns>20 ) nbinf=2*nbinf;
+		  
+#else
+		      if (ns>50 ) nbinf=2*nbinf;
+#endif
+		      float ndel=2.1;
+
+
+		      float tmi=GET_THETA_VALUE(ph,ith)-ndel*ph.thetabin;
+
+		      float tma=GET_THETA_VALUE(ph,ith)+ndel*ph.thetabin;
+		      float rmi=GET_R_VALUE(ph,ir)-ndel*ph.rbin;
+		      float rma=GET_R_VALUE(ph,ir)+ndel*ph.rbin;
+	   
+		      //printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,ns,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
+		      //getchar();
+		      nbinf/=1;
+		      nbinr/=1;
+		      //do {
+			  initialiseHough(&phcand[ic],gpu_nstub,nbinf,nbinr,tmi,tma,rmi,rma);	    
+			  //clearHough(&phi);
+			  copyPositionHough(&ph,pattern,&phcand[ic],0,false,ic);
+			  //printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,phcand[ic].nstub,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
+		      
+			  //dump(&phi);
+		      //		getchar();
+			/*
+			unsigned int h_hough_l[ntheta*nrho];
+			copyHoughLayer(&ph,h_hough_l);
+			printf("Pattern %x \n",h_hough_l[ith*nrho+ir]);
+			getchar();
+			*/			
+			  //printf("%d processed \n",ic);
+		    }
+		  
+		  // getchar();
+		  synchronize();
+		  
+		 
+		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		    {
+		      if (phcand[ic].h_reg[20]>0)
+			{
+			  phcand[ic].nstub=int( phcand[ic].h_reg[20]);
+			  processHough(&phcand[ic],5,5,0,ic);
+			}
+		    }
+		  synchronize();
+
+		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		    {
+		      if (phcand[ic].h_reg[20]>0)
+			{
+			  //printf("Candidats %d \n",phcand[ic].h_cand[0]);
+			  //drawph(&phcand[ic],theRootHandler_);
+			  // continue;
+			  for (int ici=0;ici<phcand[ic].h_cand[0];ici++)
+			    {
+			      int patterni=phcand[ic].h_cand[ici+1]; 
+			      int ithi=patterni&0X3FF;
+			      int iri=(patterni>>10)&0x3FF;
+			      
+			      if (((patterni>>20)&0x3FF)<5) continue;
+			      mctrack_t t;
+			  
+			      initialiseHough(&phreg,gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
+			      copyPositionHough(&phcand[ic],patterni,&phreg,1,true);
+
+
+			      if (phreg.h_reg[60+6]<1.7) continue;
+
+			      if (phreg.h_reg[70+9]<1.5) continue;
+			      t.z0=-phreg.h_reg[70+1]/phreg.h_reg[70+0];
+			      t.eta=phreg.h_reg[70+8];
+			      if (TMath::Abs(t.z0)>30.) continue;
+			  
+
+			      float theta=GET_THETA_VALUE(phcand[ic],ithi);
+			      float r=GET_R_VALUE(phcand[ic],iri);
+
+			      double a=-1./tan(theta);
+			      double b=r/sin(theta);
+			      
+		
+			  //
+			      double R=1./2./TMath::Abs(r);
+			      double xi=-a/2./b;
+			      double yi=1./2./b;
+			      double g_pt=0.3*3.8*R/100.;
+			  //g_phi=atan(a);
+			      double g_phi=theta-PI/2.;
+			      if (g_phi<0) g_phi+=2*PI;
+			      HOUGHLOCAL::Convert(theta,r,&t);
+			      t.nhits=(patterni>>20)&0x3FF;
+			  //t.z0=0;
+			  theHoughCandidateVector_.push_back(t);
+
+			    }
+		      //doHough(nstub, h_x,h_y,64,64,tmi,tma,rmi,rma,h_cand1);
+
+
+
+
+
+
+
+
+
+
+
+			}
+		    }
+		  goto endloop;
+		      ///////////////////////////////////////////////////////
+
+
+		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
 		    {
 		      int pattern=ph.h_cand[ic+1]; // vcand[ic]
 		      int ith=pattern&0X3FF;
@@ -584,9 +754,9 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  initialiseHough(&phi,gpu_nstub,nbinf,nbinr,tmi,tma,rmi,rma);	    
 			  //clearHough(&phi);
 			  copyPositionHough(&ph,pattern,&phi,0,false);
-			  //printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,phi.nstub,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
+			  // printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,phi.nstub,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
 		      
-		      //dump(&phi);
+			  //dump(&phi);
 		      //		getchar();
 			/*
 			unsigned int h_hough_l[ntheta*nrho];
@@ -599,6 +769,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #else
 		      processHough(&phi,8,5,0);
 #endif
+		      //drawph(&phi, theRootHandler_);
 		      if (phi.h_cand[0]>30)
 			{
 			printf("%d %f GeV ns =%d HighPrec %d \n",ic,PT,phi.nstub,phi.h_cand[0]);
@@ -609,7 +780,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		      // 	  printf("%d ns =%d HighPrec %d \n",ic,phi.nstub,phi.h_cand[0]);
 		      // 	  nbinf=int(nbinf*1.01);
 		      // 	  nbinr=int(nbinr*1.01);
-		      // 	  drawph(&phi, theRootHandler_);
+		      
 		      // 	}
 		      // }
 		      // while (phi.h_cand[0]>50);
@@ -629,7 +800,6 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  hnstubh->Fill(phi.nstub*1.);
 			  hnch->Fill(phi.h_cand[0]*1.);
 			}
-
 		      for (int ici=0;ici<phi.h_cand[0];ici++)
 			{
 			  int patterni=phi.h_cand[ici+1]; 
@@ -762,7 +932,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		      //getchar();
 	   
 		    }
-       
+		endloop:
 		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
 
 		}
@@ -785,7 +955,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      */
 	    }
 	}
-      if (evtnum%50 ==0)
+      if (evtnum%100 ==0)
 	PrintSectorMap();
     }
   printf("TotalTime %f\n",totalTime);
