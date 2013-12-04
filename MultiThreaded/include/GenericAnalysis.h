@@ -53,7 +53,7 @@ public:
   void FillMapSebastienNtuple(std::string name);
   void fill_histos();
   void associate();
-  void event_hough();
+  void event_hough(int isel);
   void basicHistos(int32_t i);
   void analyzePrecise();
   void alternativeAssociate();

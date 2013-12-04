@@ -160,11 +160,16 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
   houghParam phreg;
   createHough(&phreg);
 
-  houghParam phcand[64];
-  for (int i=0;i<64;i++)
+  houghParam phcand[96];
+  for (int i=0;i<96;i++)
     createHough(&phcand[i]);
 
-  createStreams(64);
+
+  houghParam phrcand[64];
+  for (int i=0;i<64;i++)
+    createHough(&phrcand[i]);
+
+  createStreams(96);
   initialiseTimer();
 #endif
   // allocate host memory useless but harmless for CPU
@@ -209,7 +214,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
       int idx_s;
       int idx_p;
-      for (int isel=16;isel<40;isel++)
+      for (int isel=8;isel<48;isel++)
 	{
 	  int gpu_nstub=0;
 	  theHoughCandidateVector_.clear();
@@ -235,6 +240,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		}
 	      inter= (isect>=8 && isect<16) || (isect>=40 && isect<48);
 	      if (inter) {barrel=true;endcap=false;}
+	      //if (inter) continue;
 	      theStubMap_.clear();
 	      theMCMap_.clear();
 	      theSector_=isect;
@@ -493,14 +499,18 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  float rhmin=-0.0031,rhmax=0.0031;
 		  INFO_PRINT("On appelle le GPU %d \n",gpu_nstub);
 		  int ntheta=160;
-		  int nrho=8;//12//192;
+		  int nrho=6;//8//12//192;
 		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
-		  ntheta=48;//64;
-		  if (isel%4==0) thmin=1.32;
-		  if (isel%4==1) thmin=-1.04;
-		  if (isel%4==2) thmin=-0.24;
-		  if (isel%4==3) thmin=0.51;
-		  thmax=thmin+1.25;
+		  if (isel>=8 && isel<48)
+		    {
+		      ntheta=48;//64;
+		      if (isel%4==0) thmin=1.32;
+		      if (isel%4==1) thmin=-1.04;
+		      if (isel%4==2) thmin=-0.24;
+		      if (isel%4==3) thmin=0.51;
+ 		      thmax=thmin+1.25;
+		    }
+		  if (inter) nrho=6; /// equivalent to 192->160
 		  if (gpu_nstub>400)
 		    {
 		      ntheta*=2;
@@ -519,7 +529,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #else
 		  processHough(&ph,8,4,0);
 #endif
-		  INFO_PRINT("RMIN %f RMAX %f RBIN %f gives %d candidates Max val %d STubs %d\n",ph.rmin,ph.rmax,ph.rbin,ph.h_cand[0],ph.max_val,ph.nstub);
+		  INFO_PRINT("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph.h_cand[0],ph.max_val,ph.nstub);
 		  //if (ph.h_cand[0]>10) continue;
 		  // if (ph.h_cand[0]>100)
 		  //   {processHough(&ph,7);
@@ -556,10 +566,13 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  */
 		  // using default comparison (operator <):
 		  //std::sort (vcand.begin(), vcand.end());
-
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
+		    {
+		      clearHough(&phcand[ic]);
+		    }
 
 		      ///////////////////////////////////////////////////////
-		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
 		    {
 		      phcand[ic].h_reg[20]=0;
 		      int pattern=ph.h_cand[ic+1]; // vcand[ic]
@@ -593,8 +606,13 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #else
 		      if (ns>50 ) nbinf=2*nbinf;
 #endif
-		      float ndel=2.1;
-
+		      float ndel=1.5;
+		      if (inter) 
+		      {
+		        ndel=2.1;
+			  //nbinf/=2;
+			  //nbinr/=2;
+		      }
 
 		      float tmi=GET_THETA_VALUE(ph,ith)-ndel*ph.thetabin;
 
@@ -627,42 +645,52 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  synchronize();
 		  
 		 
-		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
 		    {
 		      if (phcand[ic].h_reg[20]>0)
 			{
 			  phcand[ic].nstub=int( phcand[ic].h_reg[20]);
+			  //printf("Number of hits %d \n",phcand[ic].nstub);
+			  //dump(&phcand[ic]);
+			  //getchar();
 			  processHough(&phcand[ic],5,5,0,ic);
 			}
 		    }
 		  synchronize();
 
-		  for (int ic=0;ic<TMath::Min(64,(int)ph.h_cand[0]);ic++)
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
 		    {
 		      if (phcand[ic].h_reg[20]>0)
 			{
 			  //printf("Candidats %d \n",phcand[ic].h_cand[0]);
 			  //drawph(&phcand[ic],theRootHandler_);
 			  // continue;
-			  for (int ici=0;ici<phcand[ic].h_cand[0];ici++)
+			  if (phcand[ic].h_cand[0]>0)
+			    {
+			      hnstubh->Fill(phcand[ic].nstub*1.);
+			      hnch->Fill(phcand[ic].h_cand[0]*1.);
+			    }
+
+			  for (int ici=0;ici<TMath::Min(64,(int)phcand[ic].h_cand[0]);ici++)
 			    {
 			      int patterni=phcand[ic].h_cand[ici+1]; 
 			      int ithi=patterni&0X3FF;
 			      int iri=(patterni>>10)&0x3FF;
 			      
 			      if (((patterni>>20)&0x3FF)<5) continue;
+
 			      mctrack_t t;
-			  
-			      initialiseHough(&phreg,gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
-			      copyPositionHough(&phcand[ic],patterni,&phreg,1,true);
-
-
-			      if (phreg.h_reg[60+6]<1.7) continue;
-
-			      if (phreg.h_reg[70+9]<1.5) continue;
-			      t.z0=-phreg.h_reg[70+1]/phreg.h_reg[70+0];
-			      t.eta=phreg.h_reg[70+8];
-			      if (TMath::Abs(t.z0)>30.) continue;
+			      initialiseHough(&phrcand[ici],gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
+			      copyPositionHough(&phcand[ic],patterni,&phrcand[ici],1,true);
+			      if (phrcand[ici].h_reg[60+6]<1.7) continue;
+			      if ( phrcand[ici].h_reg[20]<=0) continue;
+			      phrcand[ici].nstub=int( phrcand[ici].h_reg[20]);
+			      //dump(&phrcand[ici]);
+			      //getchar();
+			      if ( phrcand[ici].h_reg[70+9]<1.5) continue;
+			      t.z0=-phrcand[ici].h_reg[70+1]/phrcand[ici].h_reg[70+0];
+			      t.eta=phrcand[ici].h_reg[70+8];
+			      if ( TMath::Abs(t.z0)>30.) continue;
 			  
 
 			      float theta=GET_THETA_VALUE(phcand[ic],ithi);
@@ -682,24 +710,44 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			      if (g_phi<0) g_phi+=2*PI;
 			      HOUGHLOCAL::Convert(theta,r,&t);
 			      t.nhits=(patterni>>20)&0x3FF;
+			      t.theta=theta;
+			      t.r=r;
+			      hdptreg->Fill(t.pt-phrcand[ici].h_reg[60+6]);
+			      hdphireg->Fill(t.phi-phrcand[ici].h_reg[60+2]);
+
+			      t.pt=phrcand[ici].h_reg[60+6];
+			      t.phi=phrcand[ici].h_reg[60+2];
+			      t.nhits=(patterni>>20)&0x3FF;
+			      /***
+			      //printf("%f %f \n",t.pt,t.phi);
+			  //t.z0=0;
+
+			      t.phierr=phcand[ic].thetabin;
+			      r=phrcand[ici].h_reg[60+4];
+
+
+			      t.pterr=t.pt*phrcand[ic].rbin/abs(r);
+			      */
 			  //t.z0=0;
 			  theHoughCandidateVector_.push_back(t);
 
+			      
 			    }
-		      //doHough(nstub, h_x,h_y,64,64,tmi,tma,rmi,rma,h_cand1);
-
-
-
-
-
-
-
-
-
-
-
 			}
 		    }
+		 
+
+
+
+
+
+
+
+
+
+		  
+		
+		  
 		  goto endloop;
 		      ///////////////////////////////////////////////////////
 
@@ -940,7 +988,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      //std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
 	      totalTime+=stopTimer();
 #else
-	      event_hough();
+	      event_hough(isel);
 #endif
 
 	      alternativeAssociate();
@@ -955,7 +1003,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      */
 	    }
 	}
-      if (evtnum%100 ==0)
+      if (evtnum%1 ==0)
 	PrintSectorMap();
     }
   printf("TotalTime %f\n",totalTime);
@@ -1301,7 +1349,7 @@ void GenericAnalysis::FillMapGuillaumeNtuple(std::string fname)
 	for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
 	  if (im->second.valid) ngood++;
 	DEBUG_PRINT(logFile_,"MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
-	event_hough();
+	event_hough(0);
 	associate();
 	//fill_histos(&rootHandler_);
 	continue;
@@ -1726,13 +1774,31 @@ void GenericAnalysis::associate()
       printf("%d %d %d %d \n",isect,sectmap_[isect].goodmc,sectmap_[isect].missed,sectmap_[isect].fake);
 }
 
-void GenericAnalysis::event_hough()
+void GenericAnalysis::event_hough(int isel)
 {
   theHoughCandidateVector_.clear();
   theAssociatedTracks_.clear();
   theFakeTracks_.clear();
+ float thmin=-PI/2,thmax=PI/2;
+ float rhmin=-0.0031,rhmax=0.0031;
+ INFO_PRINT("On appelle le GPU %d \n",gpu_nstub);
+ int ntheta=160;
+ int nrho=6;//8//12//192;
+ //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
+ if (isel>=8 && isel<48)
+   {
+     ntheta=48;//64;
+     if (isel%4==0) thmin=1.32;
+     if (isel%4==1) thmin=-1.04;
+     if (isel%4==2) thmin=-0.24;
+     if (isel%4==3) thmin=0.51;
+     thmax=thmin+1.25;
+   }
+
+		  
   //  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,48);
-  theHoughLow_->initialise(-PI/2,PI/2,-0.05,0.05,128,theNBinRho_); //160 avant
+  //theHoughLow_->initialise(-PI/2,PI/2,-0.05,0.05,128,theNBinRho_); //160 avant
+ theHoughLow_->initialise(thmin,thmax,rhmin,rhmax,ntheta,nrho); //160 avant
   theHoughR_->initialise(-PI/2,PI/2,-150.,150.,32,32); //160 avant
   for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
     {
@@ -1851,7 +1917,7 @@ void GenericAnalysis::event_hough()
 	//HOUGHLOCAL *htp = new HOUGHLOCAL(theHoughLow_->getTheta(i)-2*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+2*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-2*theHoughLow_->getRBin(),theHoughLow_->getR(j)+2*theHoughLow_->getRBin(),nbinf,nbinf);
 	theHoughPrecise_->initialise(theHoughLow_->getTheta(i)-ndel*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+ndel*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-ndel*theHoughLow_->getRBin(),theHoughLow_->getR(j)+ndel*theHoughLow_->getRBin(),nbinf,nbinr);
 	theHoughPrecise_->clear();
-	printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",pth,theHoughLow_->getVoteMax(),0xFF,theHoughLow_->getHoughImage(i,j),i,j,theHoughLow_->getTheta(i)-ndel*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+ndel*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-ndel*theHoughLow_->getRBin(),theHoughLow_->getR(j)+ndel*theHoughLow_->getRBin(),nbinf,nbinr);
+	//printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",pth,theHoughLow_->getVoteMax(),0xFF,theHoughLow_->getHoughImage(i,j),i,j,theHoughLow_->getTheta(i)-ndel*theHoughLow_->getThetaBin(),theHoughLow_->getTheta(i)+ndel*theHoughLow_->getThetaBin(),theHoughLow_->getR(j)-ndel*theHoughLow_->getRBin(),theHoughLow_->getR(j)+ndel*theHoughLow_->getRBin(),nbinf,nbinr);
 	//	printf("LOW %d %d  Size %d PT %f \n",i,j,vid.size(),pth);
 	//	getchar();
 	for ( std::vector<uint32_t>::iterator itd=vid.begin();itd!=vid.end();itd++)

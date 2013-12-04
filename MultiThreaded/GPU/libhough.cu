@@ -50,11 +50,12 @@ typedef struct {
 } houghLimits;
 
 
-cudaStream_t streams[64];
+cudaStream_t streams[128];
 void createStreams(unsigned int nb)
 {
-  if (nb>0 && nb<65)
+  if (nb>0 && nb<128)
     {
+
       for (unsigned int i=0;i<nb;i++)
 	checkCudaErrors(cudaStreamCreate(&streams[i]));
     }
@@ -63,7 +64,7 @@ void createStreams(unsigned int nb)
 
 void deleteStreams(unsigned int nb)
 {
-  if (nb>0 && nb<65)
+  if (nb>0 && nb<128)
     {
       for (unsigned int i=0;i<nb;i++)
 	checkCudaErrors(cudaStreamDestroy(streams[i]));
@@ -563,7 +564,7 @@ copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short*
       int ibm=ib%32;
       if (!(d_temp[iwm] & (1<<ibm)))
 	{
-	  d_temp[iwm]|=(1<<ibm); // no problem done bin/bin so one stub cannot be set in //
+	  atomicOr(&d_temp[iwm],(1<<ibm)); // no problem done bin/bin so one stub cannot be set in //
       float fid=atomicAdd(&d_reg[20],1.);
       unsigned int id=int(fid);
       //d_cand[0]+=1;
@@ -719,6 +720,8 @@ void clearHough(houghParam* p)
 {
   //cleanUI1Kernel<<<p->nrho,p->ntheta>>>(p->d_hough,p->d_hough_layer,p->d_hough_map);
   //cleanUI1Kernel<<<GPU_MAX_RHO,GPU_MAX_THETA>>>(p->d_hough_layer);
+  clearFloatKernel<<<1,GPU_MAX_REG>>>(p->d_reg);
+  clearUIKernel<<<1,512>>>(p->d_temp);
 }
 
 void clean(houghParam* p)
@@ -840,6 +843,17 @@ void dump(houghParam* p)
 			     cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaMemcpy(layer,p->d_layer,p->nstub*sizeof(float),
 			     cudaMemcpyDeviceToHost));
+
+  printf("NHits %f \n",p->h_reg[20]);
+  for (int i=50;i<=60;i++)
+    printf("%f ",p->h_reg[i]);
+  printf("\n");
+  for (int i=60;i<70;i++)
+    printf("%f ",p->h_reg[i]);
+  printf("\n");
+  for (int i=70;i<80;i++)
+    printf("%f ",p->h_reg[i]);
+  printf("\n");
 
   for (int i=0;i<p->nstub;i++)
     printf("\t %d: (%f,%f,%f) r %f Layer %d \n",i,x[i],y[i],z[i],r[i],layer[i]);
