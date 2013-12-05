@@ -12,6 +12,10 @@ static TCanvas* CanvasGPU=NULL;
 #ifdef USE_CUDA
 #include "libhough.h"
 #endif
+#ifdef USE_CPU
+#include "libhoughCPU.h"
+#endif
+
 #define USEMAIN
 #ifdef USEMAIN
 int main(int argc, char* argv[])
@@ -171,9 +175,6 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
   createStreams(96);
   initialiseTimer();
-#endif
-  // allocate host memory useless but harmless for CPU
-#ifdef USE_CUDA
   printf("On y va \n");
   float *h_x=(float *) h_malloc(1024*sizeof(float));
   float *h_y= (float *) h_malloc(1024*sizeof(float));
@@ -192,6 +193,27 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
   float *h_z=(float *) malloc(1024*sizeof(float));
   unsigned int *h_layer=(unsigned int *) malloc(1024*sizeof(unsigned int));
 
+#ifdef USE_CPU
+  houghParam ph;
+  createHoughCPU(&ph);
+  //getchar();
+
+  houghParam phi;
+  createHoughCPU(&phi);
+  // getchar();
+  houghParam phreg;
+  createHoughCPU(&phreg);
+
+  houghParam phcand[96];
+  for (int i=0;i<96;i++)
+    createHoughCPU(&phcand[i]);
+
+
+  houghParam phrcand[64];
+  for (int i=0;i<64;i++)
+    createHoughCPU(&phrcand[i]);
+
+#endif
 #endif
   float totalTime=0;
 
@@ -988,7 +1010,261 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      //std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
 	      totalTime+=stopTimer();
 #else
+#ifdef USE_CPU
+	      if (gpu_nstub<1024) 
+		{
+		  float thmin=-PI/2,thmax=PI/2;
+		  float rhmin=-0.0031,rhmax=0.0031;
+		  INFO_PRINT("On appelle le GPU %d \n",gpu_nstub);
+		  int ntheta=160;
+		  int nrho=6;//8//12//192;
+		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
+		  if (isel>=8 && isel<48)
+		    {
+		      ntheta=48;//64;
+		      if (isel%4==0) thmin=1.32;
+		      if (isel%4==1) thmin=-1.04;
+		      if (isel%4==2) thmin=-0.24;
+		      if (isel%4==3) thmin=0.51;
+ 		      thmax=thmin+1.25;
+		    }
+		  if (inter) nrho=6; /// equivalent to 192->160
+		  if (gpu_nstub>400)
+		    {
+		      ntheta*=2;
+		      nrho*=2;
+		    }
+		  initialiseHoughCPU(&ph,gpu_nstub,ntheta,nrho,thmin,thmax,rhmin,rhmax);
+		  //int nrho=12;
+		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.004,0.004);
+
+		  fillConformalHoughCPU(&ph,h_x,h_y,h_z);
+		  fillLayerHoughCPU(&ph,h_layer);
+		  //clearHough(&ph);
+#ifndef POINT2
+		  processHoughCPU(&ph,4,4,0);//processHough(&ph,3,3,0);
+
+#else
+		  processHoughCPU(&ph,8,4,0);
+#endif
+		  INFO_PRINT("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph.h_cand[0],ph.max_val,ph.nstub);
+		  //if (ph.h_cand[0]>10) continue;
+		  // if (ph.h_cand[0]>100)
+		  //   {processHough(&ph,7);
+		  //     printf("RMIN %f RMAX %f RBIN %f gives %d candidates \n",ph.rmin,ph.rmax,ph.rbin,ph.h_cand[0]);
+		  //   }
+
+		  //drawph(&ph, theRootHandler_);
+		  TH1F* hdptreg=(TH1F*) theRootHandler_->GetTH1("dptreg");
+		  TH1F* hdphireg=(TH1F*) theRootHandler_->GetTH1("dphireg");
+		  TH1F* hnstubl=(TH1F*) theRootHandler_->GetTH1("nstubl");
+		  TH1F* hnstubh=(TH1F*) theRootHandler_->GetTH1("nstubh");
+		  TH1F* hncl=(TH1F*) theRootHandler_->GetTH1("ncl");
+		  TH1F* hnch=(TH1F*) theRootHandler_->GetTH1("nch");
+		  if (hdptreg==NULL)
+		    {
+		      hdptreg=(TH1F*)theRootHandler_->BookTH1("dptreg",200,-10.,10.);
+
+		      hdphireg=(TH1F*)theRootHandler_->BookTH1("dphireg",200,-0.2,0.2);
+		      hnstubl=(TH1F*)theRootHandler_->BookTH1("nstubl",500,0.,500.);
+		      hnstubh=(TH1F*)theRootHandler_->BookTH1("nstubh",200,0.,200.);
+		      hncl=(TH1F*)theRootHandler_->BookTH1("ncl",500,0.,500.);
+		      hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
+		    }
+		  if (ph.h_cand[0]>0)
+		    {
+		      hnstubl->Fill(ph.nstub*1.);
+		      hncl->Fill(ph.h_cand[0]*1.);
+		    }
+		  //doHough(nstub, h_x,h_y,ntheta,nrho,-PI/2.,PI/2,-21.,21.,h_cand);
+		  /*
+		    unsigned int candi[1024];
+		    memcpy(candi,&ph.h_cand[1],ph.h_cand[0]*sizeof(unsigned int));
+		    std::vector<unsigned int> vcand (candi, candi+ph.h_cand[0]);               // 32 71 12 45 26 80 53 33
+		  */
+		  // using default comparison (operator <):
+		  //std::sort (vcand.begin(), vcand.end());
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
+		    {
+		      clearHoughCPU(&phcand[ic]);
+		    }
+
+		      ///////////////////////////////////////////////////////
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
+		    {
+		      phcand[ic].h_reg[20]=0;
+		      int pattern=ph.h_cand[ic+1]; // vcand[ic]
+		      int ith=pattern&0X3FF;
+		      int ir=(pattern>>10)&0x3FF;
+		      //ith=(vcand[ic])&0x3FF;
+		      //ir=(vcand[ic]>>10)&0x3FF;
+		      int ns=(pattern>>20)&0x3FF;
+#ifndef POINT2
+		      if (ns<5) continue;//if (ns<3) continue;
+#else
+		      if (ns<5) continue;
+#endif
+		      double PT=1./2./TMath::Abs(GET_R_VALUE(ph,ir))*0.3*3.8/100.;
+		      if (PT<1.5) continue;
+		      //printf("%f \n",TMath::Abs(GET_R_VALUE(ph,ir)));
+		      uint32_t nbinf=64;
+		      // <5,5-10,10-30,>30
+		      if (PT<3) nbinf=56;
+		      if (PT>=3 && PT<5) nbinf=128; // 128
+		      if (PT>=5  && PT<15) nbinf=128;//192
+		      if (PT>=15 && PT<=30) nbinf=128;//256
+		      if (PT>=30 ) nbinf=128;//256
+
+		      nbinf /=1;//1 //2 avant
+		      //if (endcap) nbinf/=2;
+		      uint32_t nbinr=nbinf;
+#ifndef POINT2
+		      if (ns>20 ) nbinf=2*nbinf;
+		  
+#else
+		      if (ns>50 ) nbinf=2*nbinf;
+#endif
+		      float ndel=1.5;
+		      if (inter) 
+		      {
+		        ndel=2.1;
+			  //nbinf/=2;
+			  //nbinr/=2;
+		      }
+
+		      float tmi=GET_THETA_VALUE(ph,ith)-ndel*ph.thetabin;
+
+		      float tma=GET_THETA_VALUE(ph,ith)+ndel*ph.thetabin;
+		      float rmi=GET_R_VALUE(ph,ir)-ndel*ph.rbin;
+		      float rma=GET_R_VALUE(ph,ir)+ndel*ph.rbin;
+	   
+		      //printf(" From LowCandidat %f %d Look for bin  val= %x ns %d ith %d ir %d %f %f %f %f %d %d \n",PT,ph.max_val,pattern,ns,ith,ir,tmi,tma,rmi,rma,nbinf,nbinr);
+		      //getchar();
+		      nbinf/=1;
+		      nbinr/=1;
+		      //do {
+			  initialiseHoughCPU(&phcand[ic],gpu_nstub,nbinf,nbinr,tmi,tma,rmi,rma);	    
+			  //clearHough(&phi);
+			  copyPositionHoughCPU(&ph,pattern,&phcand[ic],0,false);
+		    }
+		  
+
+		
+		  
+		 
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
+		    {
+		      if (phcand[ic].h_reg[20]>0)
+			{
+			  phcand[ic].nstub=int( phcand[ic].h_reg[20]);
+			  //	  printf("Number of hits %d \n",phcand[ic].nstub);
+			  //dumpCPU(&phcand[ic]);
+			  //getchar();
+			  processHoughCPU(&phcand[ic],5,5,0);
+			  //drawph(&phcand[ic], theRootHandler_);
+			}
+		    }
+
+
+		  for (int ic=0;ic<TMath::Min(96,(int)ph.h_cand[0]);ic++)
+		    {
+		      if (phcand[ic].h_reg[20]>0)
+			{
+			  //printf("Candidats %d \n",phcand[ic].h_cand[0]);
+			  //drawph(&phcand[ic],theRootHandler_);
+			  // continue;
+			  if (phcand[ic].h_cand[0]>0)
+			    {
+			      hnstubh->Fill(phcand[ic].nstub*1.);
+			      hnch->Fill(phcand[ic].h_cand[0]*1.);
+			    }
+
+			  for (int ici=0;ici<TMath::Min(64,(int)phcand[ic].h_cand[0]);ici++)
+			    {
+			      int patterni=phcand[ic].h_cand[ici+1]; 
+			      int ithi=patterni&0X3FF;
+			      int iri=(patterni>>10)&0x3FF;
+			      
+			      if (((patterni>>20)&0x3FF)<5) continue;
+
+			      mctrack_t t;
+			      initialiseHoughCPU(&phrcand[ici],gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
+			      copyPositionHoughCPU(&phcand[ic],patterni,&phrcand[ici],1,true);
+			      phrcand[ici].nstub=int( phrcand[ici].h_reg[20]);
+			      //dumpCPU(&phrcand[ici]);
+			      //getchar();
+			      if (phrcand[ici].h_reg[60+6]<1.7) continue;
+			      if ( phrcand[ici].h_reg[20]<=0) continue;
+			      
+			      if ( phrcand[ici].h_reg[70+9]<1.5) continue;
+			      t.z0=-phrcand[ici].h_reg[70+1]/phrcand[ici].h_reg[70+0];
+			      t.eta=phrcand[ici].h_reg[70+8];
+			      if ( TMath::Abs(t.z0)>30.) continue;
+			  
+
+			      float theta=GET_THETA_VALUE(phcand[ic],ithi);
+			      float r=GET_R_VALUE(phcand[ic],iri);
+
+			      double a=-1./tan(theta);
+			      double b=r/sin(theta);
+			      
+		
+			  //
+			      double R=1./2./TMath::Abs(r);
+			      double xi=-a/2./b;
+			      double yi=1./2./b;
+			      double g_pt=0.3*3.8*R/100.;
+			  //g_phi=atan(a);
+			      double g_phi=theta-PI/2.;
+			      if (g_phi<0) g_phi+=2*PI;
+			      HOUGHLOCAL::Convert(theta,r,&t);
+			      t.nhits=(patterni>>20)&0x3FF;
+			      t.theta=theta;
+			      t.r=r;
+			      hdptreg->Fill(t.pt-phrcand[ici].h_reg[60+6]);
+			      hdphireg->Fill(t.phi-phrcand[ici].h_reg[60+2]);
+
+			      t.pt=phrcand[ici].h_reg[60+6];
+			      t.phi=phrcand[ici].h_reg[60+2];
+			      t.nhits=(patterni>>20)&0x3FF;
+			      /***
+			      //printf("%f %f \n",t.pt,t.phi);
+			  //t.z0=0;
+
+			      t.phierr=phcand[ic].thetabin;
+			      r=phrcand[ici].h_reg[60+4];
+
+
+			      t.pterr=t.pt*phrcand[ic].rbin/abs(r);
+			      */
+			  //t.z0=0;
+			  theHoughCandidateVector_.push_back(t);
+
+			      
+			    }
+			}
+		    }
+		 
+
+
+
+
+
+
+
+
+
+		  
+		
+		  
+		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
+
+		}
+	      //
+
+#else
 	      event_hough(isel);
+#endif
 #endif
 
 	      alternativeAssociate();
@@ -2385,18 +2661,24 @@ void GenericAnalysis::PrintSectorMap()
 
 }
 
-#ifdef USE_CUDA
+#if defined(USE_CUDA) || defined(USE_CPU)
 void GenericAnalysis::drawph(houghParam* p,DCHistogramHandler* r)
 {
 
   unsigned int h_hough[p->ntheta*p->nrho];
+#ifdef USE_CUDA
   copyHoughImage(p,h_hough);
+#else
+  memcpy(h_hough,p->d_hough,p->ntheta*p->nrho*sizeof(int));
+ 
+#endif
   //TH2F* g_hough=(TH2F*) r->GetTH2("GPUHough");
   printf("drawph==> %d %f %f %d %f %f \n",p->ntheta,p->thetamin,p->thetamax,p->nrho,p->rmin,p->rmax);
   TH2F* g_hough=new TH2F("GPUHough","GPUHough",p->ntheta,p->thetamin,p->thetamax,p->nrho,p->rmin,p->rmax);
   for (int ith=0;ith<p->ntheta;ith++)
     for (int ir=0;ir<p->nrho;ir++)
-      g_hough->SetBinContent(ith+1,ir+1,h_hough[ith*p->nrho+ir]*1.);
+      if (h_hough[ith*p->nrho+ir]!=0)
+	g_hough->SetBinContent(ith+1,ir+1,h_hough[ith*p->nrho+ir]*1.);
   if (CanvasGPU==NULL)
     {
       CanvasGPU=new TCanvas("CanvasGPU","hough",800,900);

@@ -55,6 +55,28 @@ void cleanFCPU(int maxblock,int maxthread,float *d_layer)
   d_layer[b_idx]=0;
       }}
 }
+void fillHoughCPU(int maxblock,int maxthread,short *d_val,unsigned int* d_layer,unsigned int* d_hough,unsigned int* d_hough_layer,unsigned int* d_hough_map,houghLimits hl)
+{
+  // shared memory
+  // the size is determined by the host application
+  //const unsigned int nbintheta=blockDim.x;
+  const unsigned int nbinrho=hl.nrho;//int(limits[5]);
+  const unsigned int nbintheta=hl.ntheta;//int(limits[4]);
+
+for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx++) {{ //STARTOFLOOP
+
+  const unsigned int is=b_idx;
+  const unsigned int ith=t_idx;
+  short ir= d_val[is*nbintheta+ith];
+  if (ir>=0)
+    {
+      d_hough[ith*nbinrho+ir]+=1;
+      d_hough_layer[ith*nbinrho+ir]|=(1<<d_layer[is]);
+    }
+    }}
+
+}
+
 
 void localRegressionCPU(float xp,float yp,float* d,float* res)
 {
@@ -72,7 +94,7 @@ void localRegressionCPU(float xp,float yp,float* d,float* res)
   double phi=atan(a);
   double theta=phi+PI/2.;
   double r=b*sin(theta);
-  double R=0.5/abs(r);
+  double R=0.5/fabs(r);
   double pt=0.3*3.8*R/100.;
   double xi=-a/2./b;
   //  double yi=1./2./b;
@@ -92,7 +114,7 @@ void localRegressionCPU(float xp,float yp,float* d,float* res)
   res[5]=R;
   res[6]=pt;
   res[7]=xi;
-  res[8]=-log(abs(tan(atan(a)/2)));
+  res[8]=-log(fabs(tan(atan(a)/2)));
   if (z<0) res[8]=-res[8];
   res[9]=n;
 
@@ -236,8 +258,9 @@ void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,
       if (!(d_temp[iwm] & (1<<ibm)))
 	{
 	  d_temp[iwm]|=(1<<ibm); // no problem done bin/bin so one stub cannot be set in //
-      float fid=d_reg[20]+=1.;
-      unsigned int id=int(fid);
+	  float fid=d_reg[20];
+	  d_reg[20]+=1.;
+	  unsigned int id=int(fid);
       //d_cand[0]+=1;
       if (id<GPU_MAX_STUB)
 	{
@@ -378,6 +401,7 @@ void clearHoughCPU(houghParam* p)
   //cleanUI1Kernel<<<GPU_MAX_RHO,GPU_MAX_THETA>>>(p->d_hough_layer);
   clearFloatCPU(1,GPU_MAX_REG,p->d_reg);
   clearUICPU(1,512,p->d_temp);
+  clearUICPU(1,GPU_MAX_CAND,p->d_cand);
 }
 
 
@@ -555,7 +579,10 @@ void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,u
   int grid1=p->nstub;
   int threads1=p->ntheta;
   int grid2=p->nrho;
-  // printf("%d %d %d === %d %x %d \n",p->nstub,p->ntheta,p->nrho,streamid,(unsigned long) stream,mode);
+  //printf("%d %d %d === %d \n",p->nstub,p->ntheta,p->nrho,mode);
+  memset(p->d_val,0,GPU_MAX_THETA*GPU_MAX_STUB*sizeof(int));
+  memset(p->d_hough,0,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(int));
+  memset(p->d_hough_layer,0,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(int));
   //getchar();
   if (mode==0)
     {
@@ -566,6 +593,7 @@ void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,u
       computeHoughPointCPU(grid1,threads1,p->d_z,p->d_r,p->d_val,hl);
   cleanUI1CPU(p->nrho,p->ntheta,p->d_hough,p->d_hough_layer,p->d_hough_map,hl);
 
+  //if (min_layer==4)
   fillHoughCPU(grid1, threads1,p->d_val,p->d_layer,p->d_hough,p->d_hough_layer,p->d_hough_map,hl);
 
 

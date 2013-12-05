@@ -43,11 +43,6 @@
 #undef OLD
 #undef OLDMAP
 
-typedef struct {
-  unsigned int ntheta,nrho;
-  float thetamin,thetamax;
-  float rmin,rmax;
-} houghLimits;
 
 
 cudaStream_t streams[128];

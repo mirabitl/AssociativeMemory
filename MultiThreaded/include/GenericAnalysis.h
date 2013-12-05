@@ -34,6 +34,9 @@
 #ifdef USE_CUDA
 #include "libhough.h"
 #endif
+#ifdef USE_CPU
+#include "libhoughCPU.h"
+#endif
 typedef struct
 {
   uint32_t goodmc;
@@ -58,7 +61,8 @@ public:
   void analyzePrecise();
   void alternativeAssociate();
   void PrintSectorMap();
-#ifdef USE_CUDA
+
+#if defined(USE_CUDA) || defined(USE_CPU)
   void drawph(houghParam* p,DCHistogramHandler* r);
 #endif
 protected:
