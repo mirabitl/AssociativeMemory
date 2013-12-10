@@ -65,6 +65,9 @@ public:
 #if defined(USE_CUDA) || defined(USE_CPU)
   void drawph(houghParam* p,DCHistogramHandler* r);
 #endif
+#if defined(USE_CUDA)
+  void FillMapSectorNtuple(std::string fname);
+#endif
 protected:
   std::map<uint32_t,stub_t> theStubMap_;
   std::map<int32_t,mctrack_t> theMCMap_;

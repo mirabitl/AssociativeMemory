@@ -15,11 +15,18 @@ static TCanvas* CanvasGPU=NULL;
 #ifdef USE_CPU
 #include "libhoughCPU.h"
 #endif
-
+int theSectorMin=16;
+int theSectorMax=39;
 #define USEMAIN
 #ifdef USEMAIN
 int main(int argc, char* argv[])
 {
+   if (argc>2) 
+    {
+      theSectorMin=atoi(argv[1]);
+      theSectorMax=atoi(argv[2]);
+    }
+
   TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
@@ -216,7 +223,27 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 #endif
 #endif
   float totalTime=0;
-
+  TH1F* hdptreg=(TH1F*) theRootHandler_->GetTH1("dptreg");
+ TH1F* hdphireg=(TH1F*) theRootHandler_->GetTH1("dphireg");
+ TH1F* hnstubl=(TH1F*) theRootHandler_->GetTH1("nstubl");
+ TH1F* hnstubh=(TH1F*) theRootHandler_->GetTH1("nstubh");
+ TH1F* hncl=(TH1F*) theRootHandler_->GetTH1("ncl");
+ TH1F* hnch=(TH1F*) theRootHandler_->GetTH1("nch");
+ TH1F* hnct=(TH1F*) theRootHandler_->GetTH1("nct");
+ TH2F* hlay=(TH2F*) theRootHandler_->GetTH2("lay");
+				  
+ if (hdptreg==NULL)
+   {
+     hdptreg=(TH1F*)theRootHandler_->BookTH1("dptreg",200,-10.,10.);
+     
+     hdphireg=(TH1F*)theRootHandler_->BookTH1("dphireg",200,-0.2,0.2);
+     hnstubl=(TH1F*)theRootHandler_->BookTH1("nstubl",500,0.,500.);
+     hnstubh=(TH1F*)theRootHandler_->BookTH1("nstubh",200,0.,200.);
+     hncl=(TH1F*)theRootHandler_->BookTH1("ncl",500,0.,500.);
+     hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
+     hnct=(TH1F*)theRootHandler_->BookTH1("nct",200,0.,200.);
+     hlay=(TH2F*)theRootHandler_->BookTH2("lay",25,0.,25.,512,0.,512.);
+   }		 
   for(int evtnum=1;evtnum<n_entries;evtnum++)
     {
       int gpu_nstub=0;
@@ -236,7 +263,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
       int idx_s;
       int idx_p;
-      for (int isel=8;isel<48;isel++)
+      for (int isel=theSectorMin;isel<theSectorMax;isel++)
 	{
 	  int gpu_nstub=0;
 	  theHoughCandidateVector_.clear();
@@ -559,26 +586,20 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  //   }
 
 		  //drawph(&ph, theRootHandler_);
-		  TH1F* hdptreg=(TH1F*) theRootHandler_->GetTH1("dptreg");
-		  TH1F* hdphireg=(TH1F*) theRootHandler_->GetTH1("dphireg");
-		  TH1F* hnstubl=(TH1F*) theRootHandler_->GetTH1("nstubl");
-		  TH1F* hnstubh=(TH1F*) theRootHandler_->GetTH1("nstubh");
-		  TH1F* hncl=(TH1F*) theRootHandler_->GetTH1("ncl");
-		  TH1F* hnch=(TH1F*) theRootHandler_->GetTH1("nch");
-		  if (hdptreg==NULL)
-		    {
-		      hdptreg=(TH1F*)theRootHandler_->BookTH1("dptreg",200,-10.,10.);
+		      
 
-		      hdphireg=(TH1F*)theRootHandler_->BookTH1("dphireg",200,-0.2,0.2);
-		      hnstubl=(TH1F*)theRootHandler_->BookTH1("nstubl",500,0.,500.);
-		      hnstubh=(TH1F*)theRootHandler_->BookTH1("nstubh",200,0.,200.);
-		      hncl=(TH1F*)theRootHandler_->BookTH1("ncl",500,0.,500.);
-		      hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
-		    }
 		  if (ph.h_cand[0]>0)
 		    {
 		      hnstubl->Fill(ph.nstub*1.);
 		      hncl->Fill(ph.h_cand[0]*1.);
+		      float layers[25];
+		      memset(layers,0,25*sizeof(float));
+		      for (int ii=0;ii<ph.nstub;ii++)
+			if (h_layer[ii]!=0) layers[h_layer[ii]]+=1;
+		      for (int ii=0;ii<25;ii++)
+			hlay->Fill(ii*1.,layers[ii]);
+		      
+		      
 		    }
 		  //doHough(nstub, h_x,h_y,ntheta,nrho,-PI/2.,PI/2,-21.,21.,h_cand);
 		  /*
@@ -751,8 +772,11 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			      t.pterr=t.pt*phrcand[ic].rbin/abs(r);
 			      */
 			  //t.z0=0;
-			  theHoughCandidateVector_.push_back(t);
-
+			      bool found=false;
+			  for (std::vector< mctrack_t>::iterator it=theHoughCandidateVector_.begin();it!=theHoughCandidateVector_.end();it++)
+			    if (abs(it->pt-t.pt)<2E-3 && abs(it->phi-t.phi)<1E-2) {found=true;break;}
+			  if (!found)
+			    theHoughCandidateVector_.push_back(t);
 			      
 			    }
 			}
@@ -1007,7 +1031,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
 		}
 	      //
-	      //std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
+	      // std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
 	      totalTime+=stopTimer();
 #else
 #ifdef USE_CPU
@@ -1266,7 +1290,8 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 	      event_hough(isel);
 #endif
 #endif
-
+	      std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
+	      hnct->Fill(theHoughCandidateVector_.size()*1.);
 	      alternativeAssociate();
 	      basicHistos(isel);
 	      basicHistos(-1);
@@ -2501,12 +2526,14 @@ void GenericAnalysis::alternativeAssociate()
   nfake_=0;
   theAssociatedTracks_.clear();
   theFakeTracks_.clear();
+  uint32_t nc=0;
   for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
     {
 	
       double pth=(*ihbp).pt;
       double phih=(*ihbp).phi;
-      INFO_PRINT("  Candiddate Hough Track %f %f %d \n",pth,phih,(*ihbp).nhits);
+      nc++;
+      INFO_PRINT(" %d Candiddate Hough Track %f %f %d \n",nc,pth,phih,(*ihbp).nhits);
       
       //if (pth<thePtCut_*0.9) continue;
       
@@ -2590,15 +2617,15 @@ void GenericAnalysis::alternativeAssociate()
 	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
 	    {
 	      double dph=tan(tk.phi-(*ia).phi);						
-	      double dpt=tk.pt-(*ia).pt;
-	      double maxdev=PTERRCUT*(*ia).pt;
-	      if ((*ia).pterr>maxdev) maxdev=(*ia).pterr;
+	      double dpt=(tk.pt-(*ia).pt)/tk.pt;
+	      double maxdev=PTERRCUT*tk.pt;
+	      if (tk.pterr>maxdev) maxdev=(*ia).pterr;
 	      double phidev=PHIERRCUT;
-	      if ((*ia).phierr>phidev) phidev=(*ia).phierr;
+	      if (tk.phierr>phidev) phidev=(*ia).phierr;
 
 	      //  printf("%f %f \n",abs(dph),abs(dpt)/(*ia).pt);
 	      if (abs(dph)>phidev) {continue;}
-	      if (abs(dpt)/(*ia).pt>maxdev/(*ia).pterr) {continue;}
+	      if (abs(dpt)>maxdev) {continue;}
 	      found=true;
 	      //printf("already associated \n");
 	      break;

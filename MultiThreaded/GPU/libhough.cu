@@ -787,10 +787,14 @@ void fillPositionHough(houghParam* p,float* h_x,float* h_y,float* h_z)
 			     cudaMemcpyHostToDevice));
 }
 
-void fillLayerHough(houghParam* p,unsigned int* h_layer)
+void fillLayerHough(houghParam* p,unsigned int* h_layer,int streamid)
 {
- checkCudaErrors(cudaMemcpy(p->d_layer, h_layer,p->nstub*sizeof(unsigned int),
-			     cudaMemcpyHostToDevice));
+  cudaStream_t stream=0;
+  if (streamid>=0) stream=streams[streamid]; 
+ checkCudaErrors(cudaMemcpyAsync(p->d_layer, h_layer,p->nstub*sizeof(unsigned int),
+				 cudaMemcpyHostToDevice,stream));
+ if (streamid<0)
+   cudaDeviceSynchronize();
 }
 
 void copyHoughImage(houghParam* p,unsigned int* h_hough)
@@ -806,17 +810,20 @@ void copyHoughLayer(houghParam* p,unsigned int* h_hough)
  
 }
 
-void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z)
+void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z,int streamid)
 {
-  checkCudaErrors(cudaMemcpy(p->d_x, h_x,p->nstub*sizeof(float),
-			     cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMemcpy(p->d_y, h_y,p->nstub*sizeof(float),
-			     cudaMemcpyHostToDevice));
- checkCudaErrors(cudaMemcpy(p->d_z, h_z,p->nstub*sizeof(float),
-			     cudaMemcpyHostToDevice));
+   cudaStream_t stream=0;
+  if (streamid>=0) stream=streams[streamid]; 
+  checkCudaErrors(cudaMemcpyAsync(p->d_x, h_x,p->nstub*sizeof(float),
+				  cudaMemcpyHostToDevice,stream));
+  checkCudaErrors(cudaMemcpyAsync(p->d_y, h_y,p->nstub*sizeof(float),
+				  cudaMemcpyHostToDevice,stream));
+ checkCudaErrors(cudaMemcpyAsync(p->d_z, h_z,p->nstub*sizeof(float),
+				 cudaMemcpyHostToDevice,stream));
   dim3  grid1(p->nstub, 1, 1);
-  conformalPositionKernel<<< grid1,1 >>>(p->d_x,p->d_y,p->d_r);
-  cudaDeviceSynchronize();
+  conformalPositionKernel<<< grid1,1,0,stream >>>(p->d_x,p->d_y,p->d_r);
+  if (streamid<0)
+    cudaDeviceSynchronize();
 
 
 }

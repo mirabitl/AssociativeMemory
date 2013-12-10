@@ -6,8 +6,8 @@ extern "C" void createHough(houghParam* p);
 extern "C" void initialiseHough(houghParam* p,int nstub,int ntheta,int nrho,float thetamin,float thetamax,float rmin,float rmax);
 extern "C" void deleteHough(houghParam* p);
 extern "C" void fillPositionHough(houghParam* p,float* h_x,float* h_y,float* h_z);
-extern "C" void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z);
-extern "C" void fillLayerHough(houghParam* p,unsigned int* h_layer);
+extern "C" void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z,int streamid=-1);
+extern "C" void fillLayerHough(houghParam* p,unsigned int* h_layer,int streamid=-1);
 
 extern "C" void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression,int streamid=-1);
 extern "C" void doRegression(houghParam* p,unsigned int mode=0);
