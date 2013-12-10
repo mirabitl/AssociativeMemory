@@ -656,7 +656,8 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  //nbinf/=2;
 			  //nbinr/=2;
 		      }
-
+		      if (endcap)
+			ndel=2.7;
 		      float tmi=GET_THETA_VALUE(ph,ith)-ndel*ph.thetabin;
 
 		      float tma=GET_THETA_VALUE(ph,ith)+ndel*ph.thetabin;
@@ -774,7 +775,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  //t.z0=0;
 			      bool found=false;
 			  for (std::vector< mctrack_t>::iterator it=theHoughCandidateVector_.begin();it!=theHoughCandidateVector_.end();it++)
-			    if (abs(it->pt-t.pt)<2E-3 && abs(it->phi-t.phi)<1E-2) {found=true;break;}
+			    if (abs(it->pt-t.pt)<1E-2 && abs(tan(it->phi-t.phi))<2E-2) {found=true;break;}
 			  if (!found)
 			    theHoughCandidateVector_.push_back(t);
 			      
@@ -1734,6 +1735,7 @@ void GenericAnalysis::basicHistos(int32_t isel)
   else
     {
       TH1F* hptgood=(TH1F*) theRootHandler_->GetTH1("Ptgood");
+      TH1F* hptall=(TH1F*) theRootHandler_->GetTH1("Ptall");
       TH1F* hptgoodfound=(TH1F*) theRootHandler_->GetTH1("Ptgoodfound");
       TH1F* hphigood=(TH1F*) theRootHandler_->GetTH1("Phigood");
       TH1F* hphigoodfound=(TH1F*) theRootHandler_->GetTH1("Phigoodfound");
@@ -1757,6 +1759,7 @@ void GenericAnalysis::basicHistos(int32_t isel)
 
 
 	  hptgood=(TH1F*)theRootHandler_->BookTH1("Ptgood",150,0.,50.);
+	  hptall=(TH1F*)theRootHandler_->BookTH1("Ptall",150,0.,50.);
 	  hptgoodfound=(TH1F*)theRootHandler_->BookTH1("Ptgoodfound",150,0.,50.);
 	  hphigood=(TH1F*)theRootHandler_->BookTH1("Phigood",100,0.,2*PI);
 	  hphigoodfound=(TH1F*)theRootHandler_->BookTH1("Phigoodfound",100,0.,2*PI);
@@ -1795,6 +1798,12 @@ void GenericAnalysis::basicHistos(int32_t isel)
       //printf("%f %f \n",it->eta,theMCMap_[it->id_ass].eta);
     }
   //getchar();
+
+  for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
+    
+    {
+      hptall->Fill(ihbp->pt);
+    }
     }
 }
 

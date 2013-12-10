@@ -475,6 +475,9 @@ ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned 
 	      if (l[ip]) np++;
 	    }
 	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7]);
+#ifdef ENDCAP
+	  bar56=l[5]; //ENDCAP
+#endif
 	  // bar56=true;
 	  //np=10;
 	  if (np>=min_layer && d_hough[ith*nbinrho+ir]>=min_val && bar56)
@@ -579,7 +582,11 @@ copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short*
 	      atomicAdd(&d_reg[52],x*y);
 	      atomicAdd(&d_reg[53],y);
 	      atomicAdd(&d_reg[54],1.);
-	      if ((l==5) || (l==6) || (l==7))
+#ifndef ENDCAP	      
+	      if ((l==5) || (l==6) || (l==7)) 
+#else
+		if (true)
+#endif
 		{
 		  atomicAdd(&d_reg[55],z);
 		  atomicAdd(&d_reg[56],z*z);
