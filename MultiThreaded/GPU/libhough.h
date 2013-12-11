@@ -2,7 +2,7 @@
 #define _LIBHOUGH_H
 
 #include "libhoughStruct.h"
-extern "C" void createHough(houghParam* p);
+extern "C" void createHough(houghParam* p,uint32_t max_stub=GPU_MAX_STUB,uint32_t max_theta=GPU_MAX_THETA,uint32_t max_rho=GPU_MAX_RHO);
 extern "C" void initialiseHough(houghParam* p,int nstub,int ntheta,int nrho,float thetamin,float thetamax,float rmin,float rmax);
 extern "C" void deleteHough(houghParam* p);
 extern "C" void fillPositionHough(houghParam* p,float* h_x,float* h_y,float* h_z);

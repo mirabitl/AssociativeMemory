@@ -56,8 +56,11 @@ void GenericAnalysis::AddFile(std::string name,GenericAnalysis::FileType type)
 {
   if (type==GUILLAUME)
     FillMapGuillaumeNtuple(name);
+#ifdef USE_CUDA
   if (type==SEBASTIEN)
-    FillMapSebastienNtuple(name);
+
+    FillMapOneShot(name);    //    FillMapSebastienNtuple(name);
+#endif
 }
 
 
@@ -2731,5 +2734,602 @@ void GenericAnalysis::drawph(houghParam* p,DCHistogramHandler* r)
   //CanvasGPU->WaitPrimitive();
   char c;c=getchar();putchar(c); if (c=='.') exit(0);
   delete g_hough;
+}
+#endif
+#ifdef USE_CUDA
+void GenericAnalysis::FillMapOneShot(std::string fname)
+{
+  
+  TChain *L1TT            = new TChain("FullInfo");  
+
+  L1TT->Add(fname.c_str());
+
+  //
+  //1/ FullInfo TREE content:
+  //
+  // https://github.com/sviret/HL_LHC/blob/master/Extractors/RecoExtractor/test/SectorMaker/sector_test.h
+  //
+
+
+  int evt;             // Event number (for PU event, where there is more than 1 primary)
+  int n_stub_total;    // The total number of stubs in the event
+  int n_stub;          // The total number of stubs contained in matched patterns in the event
+
+  std::vector<float>   *stub_x=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<float>   *stub_x_2=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y_2=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z_2=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<int>     *stub_layer=new std::vector<int>;  // layer number of ALL the stubs
+  std::vector<int>     *stub_ladder=new std::vector<int>; // ladder number of ALL the stubs
+  std::vector<int>     *stub_module=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_tp=new std::vector<int>;     // tp index of ALL the stubs (in part_*** vectors of this tree!!!!)
+  std::vector<int>     *stub_inpatt=new std::vector<int>; // is the stub in a pattern (1) of not (0)?
+
+  int n_part;                        // The total number of particles inducing at least one stub in the event
+
+  std::vector<int>     *part_pdg=new std::vector<int>;    // PDG id of the particles
+  std::vector<int>     *part_nsec=new std::vector<int>;   // In how many trigger towers this particle hit more than 4 different layers/disks?
+  std::vector<int>     *part_nhits=new std::vector<int>;  // How many different layers/disks are hit by the particle?
+  std::vector<int>     *part_npatt=new std::vector<int>;  // How many patterns contains more than 4 stubs of the particle (in 4 different layers/disks)?
+  std::vector<float>   *part_pt=new std::vector<float>;     // pt of the particles
+  std::vector<float>   *part_rho=new std::vector<float>;    // rho0 of the particles
+  std::vector<float>   *part_z0=new std::vector<float>;     // z0 of the particles
+  std::vector<float>   *part_eta=new std::vector<float>;    // eta of the particles 
+  std::vector<float>   *part_phi=new std::vector<float>;    // phi of the particles
+
+  int n_patt;                        // The total number of patterns matched in the event
+
+  // Sector id of all the patterns
+  std::vector<int>                  *patt_sec=new std::vector<int>;   
+
+  // tp index of ALL the particles contained in the pattern (in part_*** vectors of this tree!!!!)
+  std::vector< std::vector<int> >   *patt_parts=new std::vector< std::vector<int> >; 
+
+  // index of ALL the stubs contained in the pattern (in stub_*** vectors of this tree!!!!) 
+  std::vector< std::vector<int> >   *patt_stubs=new std::vector< std::vector<int> >; ; 
+
+  L1TT->SetBranchAddress("evt",          &evt); 
+
+  L1TT->SetBranchAddress("n_stub_total", &n_stub_total); 
+  L1TT->SetBranchAddress("n_stub_inpat", &n_stub); 
+  L1TT->SetBranchAddress("stub_x",       &stub_x); 
+  L1TT->SetBranchAddress("stub_y",       &stub_y); 
+  L1TT->SetBranchAddress("stub_z",       &stub_z); 
+  L1TT->SetBranchAddress("stub_x_2",       &stub_x_2); 
+  L1TT->SetBranchAddress("stub_y_2",       &stub_y_2); 
+  L1TT->SetBranchAddress("stub_z_2",       &stub_z_2); 
+  L1TT->SetBranchAddress("stub_layer",   &stub_layer); 
+  L1TT->SetBranchAddress("stub_ladder",  &stub_ladder);
+  L1TT->SetBranchAddress("stub_module",  &stub_module);
+  L1TT->SetBranchAddress("stub_tp",      &stub_tp);
+  L1TT->SetBranchAddress("stub_inpatt",  &stub_inpatt);
+
+  L1TT->SetBranchAddress("n_part",       &n_part); 
+  L1TT->SetBranchAddress("part_pdg",     &part_pdg); 
+  L1TT->SetBranchAddress("part_nsec",    &part_nsec); 
+  L1TT->SetBranchAddress("part_nhits",   &part_nhits); 
+  L1TT->SetBranchAddress("part_npatt",   &part_npatt); 
+  L1TT->SetBranchAddress("part_pt",      &part_pt); 
+  L1TT->SetBranchAddress("part_rho",     &part_rho);
+  L1TT->SetBranchAddress("part_z0",      &part_z0);
+  L1TT->SetBranchAddress("part_eta",     &part_eta);  
+  L1TT->SetBranchAddress("part_phi",     &part_phi); 
+
+  L1TT->SetBranchAddress("n_patt",       &n_patt); 
+  L1TT->SetBranchAddress("patt_sec",     &patt_sec); 
+  L1TT->SetBranchAddress("patt_parts",   &patt_parts); 
+  L1TT->SetBranchAddress("patt_stubs",   &patt_stubs); 
+
+  int n_entries = L1TT->GetEntries();
+
+  //if (evtnum>=n_entries) evtnum = n_entries-1;
+  //if (evtnum<0) evtnum = 0;
+  sectmap_.clear();
+  for (uint32_t isect=1;isect<=56;isect++)
+    {
+      sectinfo s;
+      memset(&s,0,sizeof(sectinfo));
+      std::pair<uint32_t,sectinfo> p(isect,s);
+      sectmap_.insert(p);
+    }
+  n_entries=1000;
+
+
+  houghParam ph;
+  createHough(&ph,768,3072,768);
+  //getchar();
+
+  houghParam phi;
+  createHough(&phi);
+  initialiseTimer();
+  printf("On y va \n");
+  float *h_x=(float *) h_malloc(1024*sizeof(float));
+  float *h_y= (float *) h_malloc(1024*sizeof(float));
+  float *h_z=(float *) h_malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) h_malloc(1024*sizeof(unsigned int));
+
+  //  printf("Essai d'ecriture \n");
+  // printf("Essai d'ecriture %f \n",h_x[129]);
+  // getchar();
+  // h_x[129]=12.;
+  // printf("%f \n",h_x[129]);
+  // getchar();
+  float totalTime=0;
+  TH1F* hdptreg=(TH1F*) theRootHandler_->GetTH1("dptreg");
+  TH1F* hdphireg=(TH1F*) theRootHandler_->GetTH1("dphireg");
+  TH1F* hnstubl=(TH1F*) theRootHandler_->GetTH1("nstubl");
+  TH1F* hnstubh=(TH1F*) theRootHandler_->GetTH1("nstubh");
+  TH1F* hncl=(TH1F*) theRootHandler_->GetTH1("ncl");
+  TH1F* hnch=(TH1F*) theRootHandler_->GetTH1("nch");
+  TH1F* hnct=(TH1F*) theRootHandler_->GetTH1("nct");
+  TH2F* hlay=(TH2F*) theRootHandler_->GetTH2("lay");
+  
+  if (hdptreg==NULL)
+    {
+      hdptreg=(TH1F*)theRootHandler_->BookTH1("dptreg",200,-10.,10.);
+      
+     hdphireg=(TH1F*)theRootHandler_->BookTH1("dphireg",200,-0.2,0.2);
+     hnstubl=(TH1F*)theRootHandler_->BookTH1("nstubl",500,0.,500.);
+     hnstubh=(TH1F*)theRootHandler_->BookTH1("nstubh",200,0.,200.);
+     hncl=(TH1F*)theRootHandler_->BookTH1("ncl",500,0.,500.);
+     hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
+     hnct=(TH1F*)theRootHandler_->BookTH1("nct",200,0.,200.);
+     hlay=(TH2F*)theRootHandler_->BookTH2("lay",25,0.,25.,512,0.,512.);
+   }		 
+  for(int evtnum=1;evtnum<n_entries;evtnum++)
+    {
+      int gpu_nstub=0;
+  
+      L1TT->GetEntry(evtnum);
+
+      //cout <<endl;
+      cout << evtnum<<" Analyzing event " << evt <<endl;
+      /*      cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
+      cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
+      cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
+      cout << endl;
+      cout << "Now looping over the patterns... " <<endl;
+      cout << endl;
+      */
+      //getchar();
+      // Loop over patterns
+
+      int idx_s;
+      int idx_p;
+      for (int isel=theSectorMin;isel<theSectorMax;isel++)
+	{
+	  int gpu_nstub=0;
+	  theHoughCandidateVector_.clear();
+	  for (uint32_t isect=1;isect<57;isect++)
+	    {
+	      //if (isect!=9 && isect!=15 && isect!=43) continue;
+	      //if (isect!=1  && isect!=5 && isect!=53) continue;
+	      //if (isect!=16  && isect!=25 && isect!=38) continue;
+	      if (isect!=isel) continue;
+	  
+	      endcap= (isect<16 || isect>=40);
+	      barrel=!endcap;
+	      if (endcap)
+		{
+		  theNBinRho_=160;
+		  theNDelta_=2.5;
+		}
+	      else
+		{
+		  theNBinRho_=192;
+		  theNDelta_=1.5;
+
+		}
+	      inter= (isect>=8 && isect<16) || (isect>=40 && isect<48);
+	      if (inter) {barrel=true;endcap=false;}
+	      //if (inter) continue;
+	      theStubMap_.clear();
+	      theMCMap_.clear();
+	      theSector_=isect;
+	      for (int k=0;k<n_patt;++k)
+		{
+		  if (patt_sec->at(k)!=isect ) continue;
+		  /*
+		    cout << "-------------------------------------------------"  <<endl;
+		    cout << "Pattern " << k+1 << " properties:"  <<endl;
+		    cout << "=> Sector id : " << patt_sec->at(k) <<endl;
+		    cout << "=> Number of stubs : " << patt_stubs->at(k).size() <<endl;
+		    cout << "=> Number of particles w/more than four stubs in the pattern : " << patt_parts->at(k).size() <<endl;
+		  */
+		  if (patt_parts->at(k).size()==0)
+		    {
+		      //cout << "!! FAKE PATTERN containing the following stubs: " <<endl;
+
+		      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+			{
+			  idx_s = patt_stubs->at(k).at(kk);
+			  idx_p = stub_tp->at(idx_s);
+			  /*
+			    cout << " Stub " << kk+1 << endl;  
+			    cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+			    << "/" << stub_y->at(idx_s) 
+			    << "/" << stub_z->at(idx_s) << endl;
+			  */
+
+			  uint32_t hitIndex=idx_s;
+
+			  //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
+			  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+			  if (is==theStubMap_.end())
+			    {
+	       
+			      stub_t s;
+			      s.id=idx_s;
+			      s.x=stub_x->at(hitIndex);
+			      s.y=stub_y->at(hitIndex);
+			      s.z=stub_z->at(hitIndex);
+			      s.r2=s.x*s.x+s.y*s.y;;
+			      s.r=sqrt(s.r2);
+			      s.xp=s.x/s.r2;
+			      s.yp=s.y/s.r2;
+			      s.tp=stub_tp->at(hitIndex);
+			      s.layer =stub_layer->at(hitIndex);
+			      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+			      std::pair<uint32_t,stub_t> p(idx_s,s);
+			      theStubMap_.insert(p);
+			      h_x[gpu_nstub]=s.x;
+			      h_y[gpu_nstub]=s.y;
+			      h_z[gpu_nstub]=s.z;
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+			    }
+			  std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+			  if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+			    {
+			      mctrack_t mct;
+			      mct.id=stub_tp->at(hitIndex);
+			      mct.phi=part_phi->at(mct.id);
+			      if (mct.phi<0) mct.phi+=2*PI;
+			      mct.pt=part_pt->at(mct.id);
+			      mct.z0=part_z0->at(mct.id);
+			      mct.rho0=part_rho->at(mct.id);
+			      mct.eta=part_eta->at(mct.id);
+			      mct.nhits=part_nhits->at(mct.id);
+			      mct.nstubs=(1<<stub_layer->at(hitIndex));
+			      mct.maxstubs=1;
+			      mct.valid=false;
+			      mct.matches=0;
+			      // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+			      std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+			      theMCMap_.insert(mcp);
+
+			    }
+			  else
+			    if (im!=theMCMap_.end())
+			      im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+	      
+			  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+			    {
+			      /*
+				cout << "    Matched with PART   : " << idx_p << endl;
+				cout << "    PTgen     : " << part_pt->at(idx_p) 
+				<< endl;
+	  
+				cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+				<< part_z0->at(idx_p) << endl; 
+				cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+			      */
+			    }
+			  else
+			    {
+			      //cout << "Unmatched" << endl;
+			    }
+			}
+		    }
+		  else
+		    {
+		      for (int jj=0;jj<patt_parts->at(k).size();++jj)
+			{
+			  //cout << "Particle: " << jj+1 <<endl;
+			}
+
+		      /*
+			cout << "This patterns contains the following stubs: " <<endl;
+		      */
+		      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+			{
+			  idx_s = patt_stubs->at(k).at(kk);
+			  idx_p = stub_tp->at(idx_s);
+			  /*
+			    cout << " Stub " << kk+1 << endl;  
+			    cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+			    << "/" << stub_y->at(idx_s) 
+			    << "/" << stub_z->at(idx_s) << endl;
+
+			  */
+
+			  uint32_t hitIndex=idx_s;
+
+			  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+			  if (is==theStubMap_.end())
+			    {
+		      
+			      stub_t s;
+			      s.id=idx_s;
+
+			      s.x=stub_x->at(hitIndex);
+			      s.y=stub_y->at(hitIndex);
+			      s.z=stub_z->at(hitIndex);
+			      s.r2=s.x*s.x+s.y*s.y;;
+			      s.r=sqrt(s.r2);
+			      s.xp=s.x/s.r2;
+			      s.yp=s.y/s.r2;
+			      s.tp=stub_tp->at(hitIndex);
+			      s.layer =stub_layer->at(hitIndex);
+			      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+			      std::pair<uint32_t,stub_t> p(idx_s,s);
+			      theStubMap_.insert(p);
+			      h_x[gpu_nstub]=s.x;
+			      h_y[gpu_nstub]=s.y;
+			      h_z[gpu_nstub]=s.z;
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+
+			    }
+
+			  std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+			  if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+			    {
+			      mctrack_t mct;
+			      mct.id=stub_tp->at(hitIndex);
+			      mct.phi=part_phi->at(mct.id);
+			      if (mct.phi<0) mct.phi+=2*PI;
+			      mct.pt=part_pt->at(mct.id);
+			      mct.z0=part_z0->at(mct.id);
+			      mct.rho0=part_rho->at(mct.id);
+			      mct.eta=part_eta->at(mct.id);
+			      mct.nhits=part_nhits->at(mct.id);
+			      mct.nstubs=(1<<stub_layer->at(hitIndex));
+			      mct.maxstubs=1;
+			      mct.valid=false;
+			      mct.matches=0;
+			      // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+			      std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+			      theMCMap_.insert(mcp);
+
+			    }
+			  else
+			    if (im!=theMCMap_.end())
+			      im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+
+
+
+
+			  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+			    {
+			      /*
+				cout << "    Matched with PART   : " << idx_p << endl;
+				cout << "    PTgen     : " << part_pt->at(idx_p) 
+				<< endl;
+	  
+				cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+				<< part_z0->at(idx_p) << endl; 
+				cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+			      */
+			    }
+			  else
+			    {
+			      // cout << "Unmatched" << endl;
+			    }
+			}
+		    }
+		}
+      
+	      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+		{
+
+	    
+		  uint8_t np=0;
+		  for (uint8_t ib=5;ib<=24;ib++)
+		    if ((im->second.nstubs>>ib)&1) np++;
+		  //if (im->second.pt>5 ||im->second.pt<3 ) continue;	  
+		  if (im->second.pt<thePtCut_-0.8) continue;	  
+		  if (abs(im->second.rho0)>0.5) continue;	  
+		  if (np>=5 &&im->second.pt>thePtCut_ && im->second.nhits>=5) 
+		    {
+		      INFO_PRINT("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.z0);
+		      if (np>im->second.maxstubs) 	im->second.maxstubs=np;
+		      if (im->second.valid)					
+			continue;
+		      else
+			{
+			  im->second.valid=true;
+			  //hext2->Fill(im->second.pt,tan(im->second.phi));
+		
+			  //hptgen->Fill(log(im->second.pt));
+			  //hphigen->Fill(tan(im->second.phi));
+			}
+	    
+		    }
+		}
+
+      
+	      uint32_t ngood=0;
+	      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+		if (im->second.valid) ngood++;
+	      DEBUG_PRINT(logFile_,"MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	      INFO_PRINT("MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	      //getchar();
+	      // Make analysis
+	      if (ngood==0) continue;
+
+
+	      startTimer();
+	      if (gpu_nstub<768) 
+		{
+		  float thmin=-PI/2,thmax=PI/2;
+		  float rhmin=-0.0031,rhmax=0.0031;
+		  INFO_PRINT("On appelle le GPU %d \n",gpu_nstub);
+		  int ntheta=1280;
+		  int nrho=156;//8//12//192;
+		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
+		  if (isel>=8 && isel<48)
+		    {
+		      //ntheta=48;//64;
+		      if (isel%4==0) thmin=1.32;
+		      if (isel%4==1) thmin=-1.04;
+		      if (isel%4==2) thmin=-0.24;
+		      if (isel%4==3) thmin=0.51;
+ 		      thmax=thmin+1.25;
+		    }
+		  initialiseHough(&ph,gpu_nstub,ntheta,nrho,thmin,thmax,rhmin,rhmax);
+		  //int nrho=12;
+		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.004,0.004);
+
+		  fillConformalHough(&ph,h_x,h_y,h_z);
+		  fillLayerHough(&ph,h_layer);
+		  //clearHough(&ph);
+
+		  processHough(&ph,4,5,0,-1);//processHough(&ph,3,3,0);
+		  INFO_PRINT("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph.h_cand[0],ph.max_val,ph.nstub);
+		  //if (ph.h_cand[0]>10) continue;
+		  // if (ph.h_cand[0]>100)
+		  //   {processHough(&ph,7);
+		  //     printf("RMIN %f RMAX %f RBIN %f gives %d candidates \n",ph.rmin,ph.rmax,ph.rbin,ph.h_cand[0]);
+		  //   }
+
+		  //drawph(&ph, theRootHandler_);
+		      
+
+		  if (ph.h_cand[0]>0)
+		    {
+		      hnstubl->Fill(ph.nstub*1.);
+		      hncl->Fill(ph.h_cand[0]*1.);
+		      float layers[25];
+		      memset(layers,0,25*sizeof(float));
+		      for (int ii=0;ii<ph.nstub;ii++)
+			if (h_layer[ii]!=0) layers[h_layer[ii]]+=1;
+		      for (int ii=0;ii<25;ii++)
+			hlay->Fill(ii*1.,layers[ii]);
+		      
+		      
+		    }
+		      ///////////////////////////////////////////////////////
+		  for (int ic=0;ic<TMath::Min(256,(int)ph.h_cand[0]);ic++)
+		    {
+		      phi.h_reg[20]=0;
+		      int pattern=ph.h_cand[ic+1]; // vcand[ic]
+		      int ith=pattern&0X3FF;
+		      int ir=(pattern>>10)&0x3FF;
+		      //ith=(vcand[ic])&0x3FF;
+		      //ir=(vcand[ic]>>10)&0x3FF;
+		      int ns=(pattern>>20)&0x3FF;
+
+		      if (ns<5) continue;//if (ns<3) continue;
+		      double PT=1./2./TMath::Abs(GET_R_VALUE(ph,ir))*0.3*3.8/100.;
+		      if (PT<1.5) continue;
+
+		      mctrack_t t;
+		      initialiseHough(&phi,gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
+		      copyPositionHough(&ph,pattern,&phi,0,true);
+		      //dump(&phi);
+		      //getchar();
+		      if (phi.h_reg[60+6]<1.7) continue;
+		      if (phi.h_reg[20]<=0) continue;
+		      phi.nstub=int( phi.h_reg[20]);
+		      
+		      if ( phi.h_reg[70+9]<1.5) continue;
+		      t.z0=-phi.h_reg[70+1]/phi.h_reg[70+0];
+		      t.eta=phi.h_reg[70+8];
+		      if ( TMath::Abs(t.z0)>30.) continue;
+			  
+
+		      float theta=GET_THETA_VALUE(ph,ith);
+		      float r=GET_R_VALUE(ph,ir);
+
+		      double a=-1./tan(theta);
+		      double b=r/sin(theta);
+			      
+		
+		      //
+		      double R=1./2./TMath::Abs(r);
+		      double xi=-a/2./b;
+		      double yi=1./2./b;
+		      double g_pt=0.3*3.8*R/100.;
+			  //g_phi=atan(a);
+		      double g_phi=theta-PI/2.;
+		      if (g_phi<0) g_phi+=2*PI;
+		      HOUGHLOCAL::Convert(theta,r,&t);
+		      t.nhits=(pattern>>20)&0x3FF;
+		      t.theta=theta;
+		      t.r=r;
+		      hdptreg->Fill(t.pt-phi.h_reg[60+6]);
+		      hdphireg->Fill(t.phi-phi.h_reg[60+2]);
+		      
+		      t.pt=phi.h_reg[60+6];
+		      t.phi=phi.h_reg[60+2];
+		      t.nhits=(pattern>>20)&0x3FF;
+			      /***
+			      //printf("%f %f \n",t.pt,t.phi);
+			  //t.z0=0;
+
+			      t.phierr=phcand[ic].thetabin;
+			      r=phrcand[ici].h_reg[60+4];
+
+
+			      t.pterr=t.pt*phrcand[ic].rbin/abs(r);
+			      */
+			  //t.z0=0;
+		      bool found=false;
+		      for (std::vector< mctrack_t>::iterator it=theHoughCandidateVector_.begin();it!=theHoughCandidateVector_.end();it++)
+			if (abs(it->pt-t.pt)<1E-2 && abs(tan(it->phi-t.phi))<2E-2) {found=true;break;}
+		      if (!found)
+			theHoughCandidateVector_.push_back(t);
+			      
+		    }
+		}
+	    
+	    }
+
+
+
+
+
+
+
+
+
+		  
+		
+		  
+	  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
+
+	
+	      //
+	      // std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
+      totalTime+=stopTimer();
+
+      std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
+      hnct->Fill(theHoughCandidateVector_.size()*1.);
+      alternativeAssociate();
+      basicHistos(isel);
+      basicHistos(-1);
+	      /*
+	 
+		INFO_PRINT("Fin du CPU\n");
+
+
+
+	      */
+	}
+    
+      if (evtnum%10 ==0)
+	PrintSectorMap();
+    }
+  printf("TotalTime %f\n",totalTime);
+  PrintSectorMap();
+  std::string rfile="output_histos.root";
+  theRootHandler_->writeHistograms(rfile);
+
+  deleteHough(&phi);
+  deleteHough(&ph);
+
 }
 #endif

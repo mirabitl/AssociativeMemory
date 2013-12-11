@@ -67,6 +67,7 @@ public:
 #endif
 #if defined(USE_CUDA)
   void FillMapSectorNtuple(std::string fname);
+  void FillMapOneShot(std::string fname);
 #endif
 protected:
   std::map<uint32_t,stub_t> theStubMap_;
