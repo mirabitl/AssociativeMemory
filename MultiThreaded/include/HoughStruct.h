@@ -16,6 +16,7 @@ typedef struct {
   uint32_t id_ass;
   float pterr,phierr;
   float r,theta;
+  uint16_t tag;
 } mctrack_t;
 
 

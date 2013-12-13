@@ -42,6 +42,7 @@ typedef struct
   uint32_t goodmc;
   uint32_t missed;
   uint32_t fake;
+  uint32_t rec;
 } sectinfo;
 
 
@@ -68,6 +69,7 @@ public:
 #if defined(USE_CUDA)
   void FillMapSectorNtuple(std::string fname);
   void FillMapOneShot(std::string fname);
+  void FillMapEightSector(std::string fname);
 #endif
 protected:
   std::map<uint32_t,stub_t> theStubMap_;

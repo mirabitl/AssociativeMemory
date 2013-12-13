@@ -1,6 +1,6 @@
 #ifndef _LIBHOUGHSTRUCT_H
 #define _LIBHOUGHSTRUCT_H
-#define GPU_MAX_STUB 768
+#define GPU_MAX_STUB 512
 #define GPU_MAX_THETA 256
 #define GPU_MAX_RHO 256
 #define GPU_MAX_RHO_WORD 16
@@ -61,6 +61,7 @@ typedef struct {
   unsigned int ntheta,nrho;
   float thetamin,thetamax;
   float rmin,rmax;
+  unsigned int mode;
 } houghLimits;
 
 
