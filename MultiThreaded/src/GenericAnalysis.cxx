@@ -56,10 +56,12 @@ void GenericAnalysis::AddFile(std::string name,GenericAnalysis::FileType type)
 {
   if (type==GUILLAUME)
     FillMapGuillaumeNtuple(name);
-  //#ifdef USE_CUDA
   if (type==SEBASTIEN)
+ #ifndef USE_CUDA
     FillMapSebastienNtuple(name);
-    //FillMapOneShot(name);    //    
+#else
+    FillMapOneShot(name);    //    
+#endif
   //FillMapEightSector(name);
 
   //#endif
