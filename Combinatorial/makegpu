@@ -1,0 +1,16 @@
+GenericAnalysisCPU.o: src/GenericAnalysis.cxx include/GenericAnalysis.h include/HoughLocal.h  include/HoughStruct.h
+	g++ -c -UUSE_CUDA -DUSE_CPU -o GenericAnalysisCPU.o  -I GPU -I include -I$(ROOTSYS)/include  src/GenericAnalysis.cxx
+GenericAnalysisGPU.o: src/GenericAnalysis.cxx include/GenericAnalysis.h include/HoughLocal.h  include/HoughStruct.h
+	g++ -c -DUSE_CUDA -UUSE_CPU -o GenericAnalysisGPU.o  -I include -I$(ROOTSYS)/include -IGPU src/GenericAnalysis.cxx
+DCHistogramHandler.o: src/DCHistogramHandler.cxx include/DCHistogramHandler.h
+	g++ -c  -o DCHistogramHandler.o   -I include -I$(ROOTSYS)/include  src/DCHistogramHandler.cxx
+HoughLocal.o: src/HoughLocal.cxx  include/HoughLocal.h  include/HoughStruct.h
+	g++ -c  -o HoughLocal.o   -I include -I$(ROOTSYS)/include src/HoughLocal.cxx
+
+
+GenericAnalysisCPU: GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o GPU/libhoughCPU.o 
+	g++ -o GenericAnalysisCPU GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o GPU/libhoughCPU.o   `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO
+GenericAnalysisGPU: GenericAnalysisGPU.o DCHistogramHandler.o HoughLocal.o GPU/libhough.o
+	g++ -o GenericAnalysisGPU  GenericAnalysisGPU.o HoughLocal.o DCHistogramHandler.o  GPU/libhough.o `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO -L/usr/local/cuda/lib64 -lcuda -lcudart
+
+all:GenericAnalysisCPU GenericAnalysisGPU
