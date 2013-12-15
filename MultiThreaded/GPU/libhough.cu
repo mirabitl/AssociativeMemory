@@ -673,7 +673,7 @@ copyPositionKernel(unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_
 	}
     }
   //if (ith==10 && ir==10) d_cand[0]=ith*gridDim.x+ir;
-  __syncthreads();
+    //  __syncthreads();
   //__threadfence();
   //if (ith==1 && ir==1)
   //  d_cand[0]=pointerIndex;
