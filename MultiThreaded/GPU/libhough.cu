@@ -43,7 +43,7 @@
 #undef OLD
 #undef OLDMAP
 
-
+typedef float REAL_T;
 
 cudaStream_t streams[128];
 void createStreams(unsigned int nb)
@@ -112,23 +112,23 @@ __device__ void
 localRegression(float xp,float yp,float* d,float* res)
 {
 
-  double z2=d[1],z=d[0],zx=d[2],x=d[3],n=d[4];
+  REAL_T z2=d[1],z=d[0],zx=d[2],x=d[3],n=d[4];
   z/=n;
   z2/=n;
   zx/=n;
   x/=n;
-  double s2z = z2-z*z;
-  double szx = zx-z*x;
+  REAL_T s2z = z2-z*z;
+  REAL_T szx = zx-z*x;
   
-  double a = szx/s2z;
-  double b=x -a*z;
-  double phi=atan(a);
-  double theta=phi+PI/2.;
-  double r=b*sin(theta);
-  double R=0.5/abs(r);
-  double pt=0.3*3.8*R/100.;
-  double xi=-a/2./b;
-  //  double yi=1./2./b;
+  REAL_T a = szx/s2z;
+  REAL_T b=x -a*z;
+  REAL_T phi=atanf(a);
+  REAL_T theta=phi+PI/2.;
+  REAL_T r=b*__sinf(theta);
+  REAL_T R=0.5/abs(r);
+  REAL_T pt=0.3*3.8*R/100.;
+  REAL_T xi=-a/2./b;
+  //  REAL_T yi=1./2./b;
   if (phi<0) phi+=2*PI;
   if (xp>0 && yp>0 && phi>PI) phi-=PI;
   if (xp<0 && yp>0 && phi>PI) phi-=PI;
@@ -145,7 +145,7 @@ localRegression(float xp,float yp,float* d,float* res)
   res[5]=R;
   res[6]=pt;
   res[7]=xi;
-  res[8]=-log(abs(tan(atan(a)/2)));
+  res[8]=-__logf(abs(__tanf(atanf(a)/2)));
   if (z<0) res[8]=-res[8];
   res[9]=n;
 
@@ -158,7 +158,7 @@ doRegressionKernel(float *d_x, float *d_y,unsigned int* d_layer,unsigned int mod
   // the size is determined by the host application
   //const unsigned int nbintheta=blockDim.x;
 
-  __shared__  double fdata[5*1024];
+  __shared__  REAL_T fdata[5*1024];
 
   // access thread id
   const unsigned int id = threadIdx.x;
@@ -183,7 +183,7 @@ doRegressionKernel(float *d_x, float *d_y,unsigned int* d_layer,unsigned int mod
   __threadfence();
   if (id==1)
     {
-      double z2=0,z=0,zx=0,x=0,n=0;
+      REAL_T z2=0,z=0,zx=0,x=0,n=0;
       for (int iw=0;iw<blockDim.x;iw++)
 	{
 	      z+=fdata[5*iw+0];
@@ -197,18 +197,18 @@ doRegressionKernel(float *d_x, float *d_y,unsigned int* d_layer,unsigned int mod
       z2/=n;
       zx/=n;
       x/=n;
-      double s2z = z2-z*z;
-      double szx = zx-z*x;
+      REAL_T s2z = z2-z*z;
+      REAL_T szx = zx-z*x;
       
-      double a = szx/s2z;
-      double b=x -a*z;
-      double phi=atan(a);
-      double theta=phi+PI/2.;
-      double r=b*sin(theta);
-      double R=0.5/abs(r);
-      double pt=0.3*3.8*R/100.;
-      double xi=-a/2./b;
-      double yi=1./2./b;
+      REAL_T a = szx/s2z;
+      REAL_T b=x -a*z;
+      REAL_T phi=atanf(a);
+      REAL_T theta=phi+PI/2.;
+      REAL_T r=b*__sinf(theta);
+      REAL_T R=0.5/abs(r);
+      REAL_T pt=0.3*3.8*R/100.;
+      REAL_T xi=-a/2./b;
+      REAL_T yi=1./2./b;
       if (phi<0) phi+=2*PI;
       if (d_x[0]>0 && d_y[0]>0 && phi>PI) phi-=PI;
       if (d_x[0]<0 && d_y[0]>0 && phi>PI) phi-=PI;
@@ -252,8 +252,8 @@ calculateHoughPointKernel(float *d_x, float *d_y,unsigned int nbinrho,unsigned i
   __syncthreads();
 
   
-  double theta=limits[0]+(tid+0.5)*(limits[1]-limits[0])/blockDim.x;
-  double r=d_x[blockIdx.x]*cos(theta)+d_y[blockIdx.x]*sin(theta);
+  REAL_T theta=limits[0]+(tid+0.5)*(limits[1]-limits[0])/blockDim.x;
+  REAL_T r=d_x[blockIdx.x]*__cosf(theta)+d_y[blockIdx.x]*__sinf(theta);
   int ir=int(floor((r-limits[2])/((limits[3]-limits[2])/nbinrho)));
   if (ir>=0 && ir<nbinrho) 
     {
@@ -290,8 +290,8 @@ computeHoughPointKernel(float *d_x, float *d_y,short* d_val,houghLimits hl)
   const float rmax=hl.rmax;
   if (ith>=hl.ntheta) return;
   
-  double theta=thmin+(ith+0.5)*(thmax-thmin)/blockDim.x;
-  double r=d_x[is]*cos(theta)+d_y[is]*sin(theta);
+  REAL_T theta=thmin+(ith+0.5)*(thmax-thmin)/blockDim.x;
+  REAL_T r=d_x[is]*__cosf(theta)+d_y[is]*__sinf(theta);
   short ir=int(floor((r-rmin)/((rmax-rmin)/nbinrho)));
   if (ir>=0 && ir<nbinrho) 
     {
@@ -300,7 +300,7 @@ computeHoughPointKernel(float *d_x, float *d_y,short* d_val,houghLimits hl)
   else
     d_val[is*nbintheta+ith]=-1;
   //sdata[tid*nrhoword]=12;
-  __syncthreads();
+  // __syncthreads();
 }
 
 __global__ void
@@ -326,7 +326,7 @@ fillHoughKernel(short *d_val,unsigned int* d_layer,unsigned int* d_hough,unsigne
 #endif
     }
 
-  __syncthreads();
+  // __syncthreads();
 }
 
 
@@ -340,7 +340,7 @@ sumHoughPointKernel(unsigned int nstub,unsigned int* d_images,unsigned int* d_ho
   const unsigned int nth=blockDim.x;
   const unsigned int ir= blockIdx.x;
   const unsigned int nr= gridDim.x;
-  double PT=1000.;
+  REAL_T PT=1000.;
   if (mode == 0)
     {
       float r=limits[2]+(ir+0.5)*(limits[3]-limits[2])/nr;
@@ -494,8 +494,8 @@ ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned 
 	}
     }
   //if (ith==10 && ir==10) d_cand[0]=ith*gridDim.x+ir;
-  __syncthreads();
-  __threadfence();
+  // __syncthreads();
+  // __threadfence();
   //if (ith==1 && ir==1)
   d_cand[0]=pointerIndex;
 
@@ -506,15 +506,15 @@ conformalPositionKernel(float* d_xo,float* d_yo,float* d_ro)
 {
   const unsigned int ib=blockIdx.x;
 
-  double r2=d_xo[ib]*d_xo[ib]+d_yo[ib]*d_yo[ib];
-  double r=sqrt(r2);
-  double x= d_xo[ib]/r2;
-  double y= d_yo[ib]/r2;
+  REAL_T r2=d_xo[ib]*d_xo[ib]+d_yo[ib]*d_yo[ib];
+  REAL_T r=__fsqrt_ru(r2);
+  REAL_T x= d_xo[ib]/r2;
+  REAL_T y= d_yo[ib]/r2;
   d_xo[ib]=x;
   d_yo[ib]=y;
   d_ro[ib]=r;
-  __syncthreads();
-  __threadfence();
+  // __syncthreads();
+  //__threadfence();
 
 }
 __global__ void
@@ -1207,7 +1207,7 @@ runTest(int argc, char **argv)
       for (unsigned int i = 0; i < nstub; ++i)
 	{
 	  
-	  h_x[i] = rand()/((double)RAND_MAX ) * 10;
+	  h_x[i] = rand()/((REAL_T)RAND_MAX ) * 10;
 	  if (i%3!=0)
 	    {
 	      ymin=(1.56*h_x[i]+2.)*0.98;
@@ -1219,7 +1219,7 @@ runTest(int argc, char **argv)
 	      ymax=21.;
 	    }
 	  
-	  h_y[i] =  rand()/((double)RAND_MAX ) *(ymax-ymin)+ymin;
+	  h_y[i] =  rand()/((REAL_T)RAND_MAX ) *(ymax-ymin)+ymin;
 	}
       sdkResetTimer(&timer1);
       sdkStartTimer(&timer1);

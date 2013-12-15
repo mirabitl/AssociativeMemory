@@ -3228,6 +3228,11 @@ void GenericAnalysis::FillMapOneShot(std::string fname)
 		      if (isel%4==3) thmin=0.51;
  		      thmax=thmin+1.25;
 		    }
+		  if (inter)
+		    {
+		      ntheta=1056;
+		      nrho=88;
+		    }
 		  initialiseHough(&ph,gpu_nstub,ntheta,nrho,thmin,thmax,rhmin,rhmax);
 		  //int nrho=12;
 		  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.004,0.004);
@@ -3239,8 +3244,9 @@ void GenericAnalysis::FillMapOneShot(std::string fname)
 		  //clearHough(&ph);
 		  totalTime[1]+=stopTimer();
 		  startTimer();
-
-		  processHough(&ph,4,5,0,-1);// mode (1<<8) on copie les hits d'a cote pour le pattern
+		  if (!inter && barrel) 
+		    processHough(&ph,4,5,0,-1);// mode (1<<8) on copie les hits d'a cote pour le pattern
+		  if (inter) processHough(&ph,4,5,0,-1);
 		  totalTime[2]+=stopTimer();
 		  //startTimer();
 
