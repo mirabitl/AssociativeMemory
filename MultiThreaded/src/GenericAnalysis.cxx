@@ -15,6 +15,7 @@ static TCanvas* CanvasGPU=NULL;
 #ifdef USE_CPU
 #include "libhoughCPU.h"
 #endif
+#include "ComputerHough.h"
 int theSectorMin=16;
 int theSectorMax=39;
 #define USEMAIN
@@ -58,7 +59,8 @@ void GenericAnalysis::AddFile(std::string name,GenericAnalysis::FileType type)
     FillMapGuillaumeNtuple(name);
   if (type==SEBASTIEN)
  #ifndef USE_CUDA
-    FillMapSebastienNtuple(name);
+    //FillMapSebastienNtuple(name);
+    CPULoopTest(name);
 #else
     FillMapOneShot(name);    //    
 #endif
@@ -4027,3 +4029,474 @@ void GenericAnalysis::FillMapEightSector(std::string fname)
 }
 
 #endif
+void GenericAnalysis::CPULoopTest(std::string fname)
+{
+  
+  TChain *L1TT            = new TChain("FullInfo");  
+
+  L1TT->Add(fname.c_str());
+
+  //
+  //1/ FullInfo TREE content:
+  //
+  // https://github.com/sviret/HL_LHC/blob/master/Extractors/RecoExtractor/test/SectorMaker/sector_test.h
+  //
+
+
+  int evt;             // Event number (for PU event, where there is more than 1 primary)
+  int n_stub_total;    // The total number of stubs in the event
+  int n_stub;          // The total number of stubs contained in matched patterns in the event
+
+  std::vector<float>   *stub_x=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<float>   *stub_x_2=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y_2=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z_2=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<int>     *stub_layer=new std::vector<int>;  // layer number of ALL the stubs
+  std::vector<int>     *stub_ladder=new std::vector<int>; // ladder number of ALL the stubs
+  std::vector<int>     *stub_module=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_tp=new std::vector<int>;     // tp index of ALL the stubs (in part_*** vectors of this tree!!!!)
+  std::vector<int>     *stub_inpatt=new std::vector<int>; // is the stub in a pattern (1) of not (0)?
+
+  int n_part;                        // The total number of particles inducing at least one stub in the event
+
+  std::vector<int>     *part_pdg=new std::vector<int>;    // PDG id of the particles
+  std::vector<int>     *part_nsec=new std::vector<int>;   // In how many trigger towers this particle hit more than 4 different layers/disks?
+  std::vector<int>     *part_nhits=new std::vector<int>;  // How many different layers/disks are hit by the particle?
+  std::vector<int>     *part_npatt=new std::vector<int>;  // How many patterns contains more than 4 stubs of the particle (in 4 different layers/disks)?
+  std::vector<float>   *part_pt=new std::vector<float>;     // pt of the particles
+  std::vector<float>   *part_rho=new std::vector<float>;    // rho0 of the particles
+  std::vector<float>   *part_z0=new std::vector<float>;     // z0 of the particles
+  std::vector<float>   *part_eta=new std::vector<float>;    // eta of the particles 
+  std::vector<float>   *part_phi=new std::vector<float>;    // phi of the particles
+
+  int n_patt;                        // The total number of patterns matched in the event
+
+  // Sector id of all the patterns
+  std::vector<int>                  *patt_sec=new std::vector<int>;   
+
+  // tp index of ALL the particles contained in the pattern (in part_*** vectors of this tree!!!!)
+  std::vector< std::vector<int> >   *patt_parts=new std::vector< std::vector<int> >; 
+
+  // index of ALL the stubs contained in the pattern (in stub_*** vectors of this tree!!!!) 
+  std::vector< std::vector<int> >   *patt_stubs=new std::vector< std::vector<int> >; ; 
+
+  L1TT->SetBranchAddress("evt",          &evt); 
+
+  L1TT->SetBranchAddress("n_stub_total", &n_stub_total); 
+  L1TT->SetBranchAddress("n_stub_inpat", &n_stub); 
+  L1TT->SetBranchAddress("stub_x",       &stub_x); 
+  L1TT->SetBranchAddress("stub_y",       &stub_y); 
+  L1TT->SetBranchAddress("stub_z",       &stub_z); 
+  L1TT->SetBranchAddress("stub_x_2",       &stub_x_2); 
+  L1TT->SetBranchAddress("stub_y_2",       &stub_y_2); 
+  L1TT->SetBranchAddress("stub_z_2",       &stub_z_2); 
+  L1TT->SetBranchAddress("stub_layer",   &stub_layer); 
+  L1TT->SetBranchAddress("stub_ladder",  &stub_ladder);
+  L1TT->SetBranchAddress("stub_module",  &stub_module);
+  L1TT->SetBranchAddress("stub_tp",      &stub_tp);
+  L1TT->SetBranchAddress("stub_inpatt",  &stub_inpatt);
+
+  L1TT->SetBranchAddress("n_part",       &n_part); 
+  L1TT->SetBranchAddress("part_pdg",     &part_pdg); 
+  L1TT->SetBranchAddress("part_nsec",    &part_nsec); 
+  L1TT->SetBranchAddress("part_nhits",   &part_nhits); 
+  L1TT->SetBranchAddress("part_npatt",   &part_npatt); 
+  L1TT->SetBranchAddress("part_pt",      &part_pt); 
+  L1TT->SetBranchAddress("part_rho",     &part_rho);
+  L1TT->SetBranchAddress("part_z0",      &part_z0);
+  L1TT->SetBranchAddress("part_eta",     &part_eta);  
+  L1TT->SetBranchAddress("part_phi",     &part_phi); 
+
+  L1TT->SetBranchAddress("n_patt",       &n_patt); 
+  L1TT->SetBranchAddress("patt_sec",     &patt_sec); 
+  L1TT->SetBranchAddress("patt_parts",   &patt_parts); 
+  L1TT->SetBranchAddress("patt_stubs",   &patt_stubs); 
+
+  int n_entries = L1TT->GetEntries();
+
+  //if (evtnum>=n_entries) evtnum = n_entries-1;
+  //if (evtnum<0) evtnum = 0;
+  sectmap_.clear();
+  for (uint32_t isect=0;isect<=56;isect++)
+    {
+      sectinfo s;
+      memset(&s,0,sizeof(sectinfo));
+      std::pair<uint32_t,sectinfo> p(isect,s);
+      sectmap_.insert(p);
+    }
+  n_entries=1000;
+
+  float *h_x=(float *) malloc(1024*sizeof(float));
+  float *h_y= (float *) malloc(1024*sizeof(float));
+  float *h_z=(float *) malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) malloc(1024*sizeof(unsigned int));
+  HoughCut cuts;
+  ComputerHough ch(&cuts);
+  ch.DefaultCuts();
+  float totalTime=0;
+  
+  TH1F* hdptreg=(TH1F*) theRootHandler_->GetTH1("dptreg");
+ TH1F* hdphireg=(TH1F*) theRootHandler_->GetTH1("dphireg");
+ TH1F* hnstubl=(TH1F*) theRootHandler_->GetTH1("nstubl");
+ TH1F* hnstubh=(TH1F*) theRootHandler_->GetTH1("nstubh");
+ TH1F* hncl=(TH1F*) theRootHandler_->GetTH1("ncl");
+ TH1F* hnch=(TH1F*) theRootHandler_->GetTH1("nch");
+ TH1F* hnct=(TH1F*) theRootHandler_->GetTH1("nct");
+ TH2F* hlay=(TH2F*) theRootHandler_->GetTH2("lay");
+				  
+ if (hdptreg==NULL)
+   {
+     hdptreg=(TH1F*)theRootHandler_->BookTH1("dptreg",200,-10.,10.);
+     
+     hdphireg=(TH1F*)theRootHandler_->BookTH1("dphireg",200,-0.2,0.2);
+     hnstubl=(TH1F*)theRootHandler_->BookTH1("nstubl",500,0.,500.);
+     hnstubh=(TH1F*)theRootHandler_->BookTH1("nstubh",200,0.,200.);
+     hncl=(TH1F*)theRootHandler_->BookTH1("ncl",500,0.,500.);
+     hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
+     hnct=(TH1F*)theRootHandler_->BookTH1("nct",200,0.,200.);
+     hlay=(TH2F*)theRootHandler_->BookTH2("lay",25,0.,25.,512,0.,512.);
+   }		 
+  for(int evtnum=1;evtnum<n_entries;evtnum++)
+    {
+      int gpu_nstub=0;
+  
+      L1TT->GetEntry(evtnum);
+
+      cout <<endl;
+      cout << "Analyzing event " << evt <<endl;
+      cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
+      cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
+      cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
+      cout << endl;
+      cout << "Now looping over the patterns... " <<endl;
+      cout << endl;
+      //getchar();
+      // Loop over patterns
+
+      int idx_s;
+      int idx_p;
+      for (int isel=theSectorMin;isel<theSectorMax;isel++)
+	{
+	  int gpu_nstub=0;
+	  theHoughCandidateVector_.clear();
+	  for (uint32_t isect=1;isect<57;isect++)
+	    {
+	      //if (isect!=9 && isect!=15 && isect!=43) continue;
+	      //if (isect!=1  && isect!=5 && isect!=53) continue;
+	      //if (isect!=16  && isect!=25 && isect!=38) continue;
+	      if (isect!=isel) continue;
+	  
+	      endcap= (isect<16 || isect>=40);
+	      barrel=!endcap;
+	      if (endcap)
+		{
+		  theNBinRho_=160;
+		  theNDelta_=2.5;
+		}
+	      else
+		{
+		  theNBinRho_=192;
+		  theNDelta_=1.5;
+
+		}
+	      inter= (isect>=8 && isect<16) || (isect>=40 && isect<48);
+	      if (inter) {barrel=true;endcap=false;}
+	      //if (inter) continue;
+	      theStubMap_.clear();
+	      theMCMap_.clear();
+	      theSector_=isect;
+	      for (int k=0;k<n_patt;++k)
+		{
+		  if (patt_sec->at(k)!=isect ) continue;
+		  /*
+		    cout << "-------------------------------------------------"  <<endl;
+		    cout << "Pattern " << k+1 << " properties:"  <<endl;
+		    cout << "=> Sector id : " << patt_sec->at(k) <<endl;
+		    cout << "=> Number of stubs : " << patt_stubs->at(k).size() <<endl;
+		    cout << "=> Number of particles w/more than four stubs in the pattern : " << patt_parts->at(k).size() <<endl;
+		  */
+		  if (patt_parts->at(k).size()==0)
+		    {
+		      //cout << "!! FAKE PATTERN containing the following stubs: " <<endl;
+
+		      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+			{
+			  idx_s = patt_stubs->at(k).at(kk);
+			  idx_p = stub_tp->at(idx_s);
+			  /*
+			    cout << " Stub " << kk+1 << endl;  
+			    cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+			    << "/" << stub_y->at(idx_s) 
+			    << "/" << stub_z->at(idx_s) << endl;
+			  */
+
+			  uint32_t hitIndex=idx_s;
+
+			  //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
+			  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+			  if (is==theStubMap_.end())
+			    {
+	       
+			      stub_t s;
+			      s.id=idx_s;
+			      s.x=stub_x->at(hitIndex);
+			      s.y=stub_y->at(hitIndex);
+			      s.z=stub_z->at(hitIndex);
+			      s.r2=s.x*s.x+s.y*s.y;;
+			      s.r=sqrt(s.r2);
+			      s.xp=s.x/s.r2;
+			      s.yp=s.y/s.r2;
+			      s.tp=stub_tp->at(hitIndex);
+			      s.layer =stub_layer->at(hitIndex);
+			      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+			      std::pair<uint32_t,stub_t> p(idx_s,s);
+			      theStubMap_.insert(p);
+			      h_x[gpu_nstub]=s.x;
+			      h_y[gpu_nstub]=s.y;
+			      h_z[gpu_nstub]=s.z;
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+#undef POINT2
+#ifdef POINT2
+			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
+			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
+			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+#endif
+			    }
+			  std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+			  if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+			    {
+			      mctrack_t mct;
+			      mct.id=stub_tp->at(hitIndex);
+			      mct.phi=part_phi->at(mct.id);
+			      if (mct.phi<0) mct.phi+=2*PI;
+			      mct.pt=part_pt->at(mct.id);
+			      mct.z0=part_z0->at(mct.id);
+			      mct.rho0=part_rho->at(mct.id);
+			      mct.eta=part_eta->at(mct.id);
+			      mct.nhits=part_nhits->at(mct.id);
+			      mct.nstubs=(1<<stub_layer->at(hitIndex));
+			      mct.maxstubs=1;
+			      mct.valid=false;
+			      mct.matches=0;
+			      // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+			      std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+			      theMCMap_.insert(mcp);
+
+			    }
+			  else
+			    if (im!=theMCMap_.end())
+			      im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+	      
+			  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+			    {
+			      /*
+				cout << "    Matched with PART   : " << idx_p << endl;
+				cout << "    PTgen     : " << part_pt->at(idx_p) 
+				<< endl;
+	  
+				cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+				<< part_z0->at(idx_p) << endl; 
+				cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+			      */
+			    }
+			  else
+			    {
+			      //cout << "Unmatched" << endl;
+			    }
+			}
+		    }
+		  else
+		    {
+		      for (int jj=0;jj<patt_parts->at(k).size();++jj)
+			{
+			  //cout << "Particle: " << jj+1 <<endl;
+			}
+
+		      /*
+			cout << "This patterns contains the following stubs: " <<endl;
+		      */
+		      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+			{
+			  idx_s = patt_stubs->at(k).at(kk);
+			  idx_p = stub_tp->at(idx_s);
+			  /*
+			    cout << " Stub " << kk+1 << endl;  
+			    cout << " X/Y/Z (in cm)       : " << stub_x->at(idx_s) 
+			    << "/" << stub_y->at(idx_s) 
+			    << "/" << stub_z->at(idx_s) << endl;
+
+			  */
+
+			  uint32_t hitIndex=idx_s;
+
+			  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+			  if (is==theStubMap_.end())
+			    {
+		      
+			      stub_t s;
+			      s.id=idx_s;
+
+			      s.x=stub_x->at(hitIndex);
+			      s.y=stub_y->at(hitIndex);
+			      s.z=stub_z->at(hitIndex);
+			      s.r2=s.x*s.x+s.y*s.y;;
+			      s.r=sqrt(s.r2);
+			      s.xp=s.x/s.r2;
+			      s.yp=s.y/s.r2;
+			      s.tp=stub_tp->at(hitIndex);
+			      s.layer =stub_layer->at(hitIndex);
+			      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+			      std::pair<uint32_t,stub_t> p(idx_s,s);
+			      theStubMap_.insert(p);
+			      h_x[gpu_nstub]=s.x;
+			      h_y[gpu_nstub]=s.y;
+			      h_z[gpu_nstub]=s.z;
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+#ifdef POINT2
+			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
+			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
+			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
+			      h_layer[gpu_nstub]=s.layer;
+			      gpu_nstub++;
+#endif
+
+			    }
+
+			  std::map<int32_t,mctrack_t>::iterator im=theMCMap_.find(stub_tp->at(hitIndex));
+			  if (theMCMap_.count(stub_tp->at(hitIndex))==0 && stub_tp->at(hitIndex)>=0)
+			    {
+			      mctrack_t mct;
+			      mct.id=stub_tp->at(hitIndex);
+			      mct.phi=part_phi->at(mct.id);
+			      if (mct.phi<0) mct.phi+=2*PI;
+			      mct.pt=part_pt->at(mct.id);
+			      mct.z0=part_z0->at(mct.id);
+			      mct.rho0=part_rho->at(mct.id);
+			      mct.eta=part_eta->at(mct.id);
+			      mct.nhits=part_nhits->at(mct.id);
+			      mct.nstubs=(1<<stub_layer->at(hitIndex));
+			      mct.maxstubs=1;
+			      mct.valid=false;
+			      mct.matches=0;
+			      // DEBUG_PRINT(logFile_,"insert done %d %d \n", mct.id,theMCMap_.count(mct.id));
+			      std::pair<uint32_t,mctrack_t> mcp(mct.id,mct);
+			      theMCMap_.insert(mcp);
+
+			    }
+			  else
+			    if (im!=theMCMap_.end())
+			      im->second.nstubs|=(1<<stub_layer->at(hitIndex));
+
+
+
+
+			  if (stub_tp->at(idx_s)>=0)  // The cluster is matched
+			    {
+			      /*
+				cout << "    Matched with PART   : " << idx_p << endl;
+				cout << "    PTgen     : " << part_pt->at(idx_p) 
+				<< endl;
+	  
+				cout << "    PART origin (R/Z) : " << part_rho->at(idx_p) << " / " 
+				<< part_z0->at(idx_p) << endl; 
+				cout << "    PART pdg code       : " << part_pdg->at(idx_p) << endl; 
+			      */
+			    }
+			  else
+			    {
+			      // cout << "Unmatched" << endl;
+			    }
+			}
+		    }
+		}
+      
+	      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+		{
+
+	    
+		  uint8_t np=0;
+		  for (uint8_t ib=5;ib<=24;ib++)
+		    if ((im->second.nstubs>>ib)&1) np++;
+		  //if (im->second.pt>5 ||im->second.pt<3 ) continue;	  
+		  if (im->second.pt<thePtCut_-0.8) continue;	  
+		  if (abs(im->second.rho0)>0.5) continue;	  
+		  if (np>=5 &&im->second.pt>thePtCut_ && im->second.nhits>=5) 
+		    {
+		      INFO_PRINT("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.z0);
+		      if (np>im->second.maxstubs) 	im->second.maxstubs=np;
+		      if (im->second.valid)					
+			continue;
+		      else
+			{
+			  im->second.valid=true;
+			  //hext2->Fill(im->second.pt,tan(im->second.phi));
+		
+			  //hptgen->Fill(log(im->second.pt));
+			  //hphigen->Fill(tan(im->second.phi));
+			}
+	    
+		    }
+		}
+
+      
+	      uint32_t ngood=0;
+	      for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
+		if (im->second.valid) ngood++;
+	      DEBUG_PRINT(logFile_,"MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	      INFO_PRINT("MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
+	      //getchar();
+	      // Make analysis
+	      if (ngood==0) continue;
+
+
+	      if (gpu_nstub<1024) 
+		{
+		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		 
+
+
+
+
+		  std::vector<mctrack_t> &v=ch.getCandidates();
+		  for (std::vector<mctrack_t>::iterator it=v.begin();it!=v.end();it++)
+		    theHoughCandidateVector_.push_back((*it));
+
+
+
+
+		  
+		
+		  
+		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
+
+		}
+	      //
+
+	      std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
+	      hnct->Fill(theHoughCandidateVector_.size()*1.);
+	      alternativeAssociate();
+	      basicHistos(isel);
+	      basicHistos(-1);
+	      /*
+	 
+		INFO_PRINT("Fin du CPU\n");
+
+
+
+	      */
+	    }
+	}
+      if (evtnum%1 ==0)
+	PrintSectorMap();
+    }
+  printf("TotalTime %f\n",totalTime);
+  PrintSectorMap();
+  std::string rfile="output_histos.root";
+  theRootHandler_->writeHistograms(rfile);
+}
