@@ -37,6 +37,8 @@ public:
   ComputerHough(HoughCut* cuts);
   void DefaultCuts();
   void Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
+  void ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
+
   std::vector<mctrack_t> &getCandidates(){return theCandidateVector_;}
   static void Convert(double theta,double r,mctrack_t *m);
 protected:
