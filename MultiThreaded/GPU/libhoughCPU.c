@@ -21,6 +21,7 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 
 #include "libhoughCPU.h"
@@ -374,25 +375,28 @@ clearUICPU(int maxblock,int maxthread,unsigned int* d_float)
 }
 
 
-void createHoughCPU(houghParam* p)
+void createHoughCPU(houghParam* p,uint32_t max_stub,uint32_t max_theta,uint32_t max_rho)
 {
+  p->max_stub=max_stub;
+  p->max_theta=max_theta;
+  p->max_rho=max_rho;
    p->h_cand = (unsigned int*) malloc(GPU_MAX_CAND*sizeof(unsigned int));
    p->h_temp = (unsigned int*) malloc(512*sizeof(unsigned int));
    p->h_reg = (float*) malloc(GPU_MAX_REG*sizeof(float));
-   p->h_val = (short*) malloc(GPU_MAX_STUB*GPU_MAX_THETA*sizeof(short));
+   p->h_val = (short*) malloc(max_stub*max_theta*sizeof(short));
    
    p->d_reg=(float*)malloc(GPU_MAX_REG *sizeof(float));
    p->d_temp=(unsigned int*)malloc(512 *sizeof(unsigned int));
    
-   p->d_val=(short*) malloc(GPU_MAX_STUB*GPU_MAX_THETA*sizeof(short));
-   p->d_x=(float*)malloc(GPU_MAX_STUB *sizeof(float));
-   p->d_y=(float*)malloc( GPU_MAX_STUB*sizeof(float));
-   p->d_r=(float*)malloc( GPU_MAX_STUB*sizeof(float));
-   p->d_z=(float*)malloc( GPU_MAX_STUB*sizeof(float));
-   p->d_layer=(unsigned int*)malloc( GPU_MAX_STUB*sizeof(unsigned int));
+   p->d_val=(short*) malloc(max_stub*max_theta*sizeof(short));
+   p->d_x=(float*)malloc(max_stub *sizeof(float));
+   p->d_y=(float*)malloc( max_stub*sizeof(float));
+   p->d_r=(float*)malloc( max_stub*sizeof(float));
+   p->d_z=(float*)malloc( max_stub*sizeof(float));
+   p->d_layer=(unsigned int*)malloc( max_stub*sizeof(unsigned int));
    p->d_cand=(unsigned int*)malloc( GPU_MAX_CAND*sizeof(unsigned int));
-   p->d_hough=(unsigned int*)malloc(GPU_MAX_THETA*GPU_MAX_RHO*sizeof(unsigned int) );
-   p->d_hough_layer=(unsigned int*)malloc(GPU_MAX_THETA*GPU_MAX_RHO*sizeof(unsigned int) );
+   p->d_hough=(unsigned int*)malloc(max_theta*max_rho*sizeof(unsigned int) );
+   p->d_hough_layer=(unsigned int*)malloc(max_theta*max_rho*sizeof(unsigned int) );
 
 }
 void clearHoughCPU(houghParam* p)
@@ -580,9 +584,9 @@ void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,u
   int threads1=p->ntheta;
   int grid2=p->nrho;
   //printf("%d %d %d === %d \n",p->nstub,p->ntheta,p->nrho,mode);
-  memset(p->d_val,0,GPU_MAX_THETA*GPU_MAX_STUB*sizeof(int));
-  memset(p->d_hough,0,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(int));
-  memset(p->d_hough_layer,0,GPU_MAX_THETA*GPU_MAX_RHO*sizeof(int));
+  memset(p->d_val,0,p->max_theta*p->max_stub*sizeof(int));
+  memset(p->d_hough,0,p->max_theta*p->max_rho*sizeof(int));
+  memset(p->d_hough_layer,0,p->max_theta*p->max_rho*sizeof(int));
   //getchar();
   if (mode==0)
     {

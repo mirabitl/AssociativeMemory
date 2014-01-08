@@ -50,7 +50,10 @@ typedef struct {
   // Rgression
   float* d_reg;
   float* h_reg;
-  
+
+
+  // limits
+  unsigned int max_stub,max_theta,max_rho;
 } houghParam;
 
 
