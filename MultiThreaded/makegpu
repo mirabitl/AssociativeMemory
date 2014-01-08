@@ -9,10 +9,12 @@ HoughLocal.o: src/HoughLocal.cxx  include/HoughLocal.h  include/HoughStruct.h
 
 ComputerHough.o: include/ComputerHough.h src/ComputerHough.cxx GPU/libhoughCPU.h
 	g++ -c  -o ComputerHough.o -I include -I GPU src/ComputerHough.cxx
+CudaHough.o: include/CudaHough.h src/CudaHough.cxx GPU/libhough.h
+	g++ -c  -o CudaHough.o -I include -I GPU src/CudaHough.cxx
 
 GenericAnalysisCPU: GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o GPU/libhoughCPU.o ComputerHough.o
 	g++ -o GenericAnalysisCPU GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o ComputerHough.o GPU/libhoughCPU.o   `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO
-GenericAnalysisGPU: GenericAnalysisGPU.o DCHistogramHandler.o HoughLocal.o GPU/libhough.o  ComputerHough.o
-	g++ -o GenericAnalysisGPU  GenericAnalysisGPU.o HoughLocal.o DCHistogramHandler.o ComputerHough.o  GPU/libhough.o GPU/libhoughCPU.o `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO -L/usr/local/cuda/lib64 -lcuda -lcudart
+GenericAnalysisGPU: GenericAnalysisGPU.o DCHistogramHandler.o HoughLocal.o GPU/libhough.o  CudaHough.o
+	g++ -o GenericAnalysisGPU  GenericAnalysisGPU.o HoughLocal.o DCHistogramHandler.o CudaHough.o  GPU/libhough.o GPU/libhoughCPU.o `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 all:GenericAnalysisCPU GenericAnalysisGPU
