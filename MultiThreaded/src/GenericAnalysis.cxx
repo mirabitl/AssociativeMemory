@@ -17,7 +17,7 @@ static TCanvas* CanvasGPU=NULL;
 #include "libhoughCPU.h"
 #include "ComputerHough.h"
 #endif
-
+#include "FileEventProxy.h"
 int theSectorMin=16;
 int theSectorMax=39;
 #define USEMAIN
@@ -33,8 +33,9 @@ int main(int argc, char* argv[])
   TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
-  a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
+  //@@@@@@@@@@ a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
 }
 #endif
 bool mctsort(mctrack_t t1,mctrack_t t2)
@@ -4519,4 +4520,130 @@ void GenericAnalysis::CPULoopTest(std::string fname)
   PrintSectorMap();
   std::string rfile="output_histos.root";
   theRootHandler_->writeHistograms(rfile);
+}
+
+
+void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
+
+{
+  
+   
+   
+
+  cout<<"On rentre"<<endl;
+  cout<<"DCHist created"<<endl;
+  
+  const int MAX_NB_PATTERNS=1500;
+  const int MAX_NB_HITS = 100;
+  const int MAX_NB_LADDERS_PER_LAYER = 16;
+  const int MAX_NB_LAYERS=6;
+
+  // Il y a 2 TTree dans le fichier : le premier contient les secteurs avec un ID par secteur
+  // le deuxième contient les evenements avec la liste des patterns par evenement ainsi que l'ID du secteur concerne
+  TChain *L1TrackTrigger    = new TChain("L1TrackTrigger"); // infos about patterns
+
+
+  L1TrackTrigger->Add(fname.c_str());
+
+  
+//Declaration of leaves types
+   int32_t           evt;
+   std::vector<float>   STUB_PHI0;
+   std::vector<int32_t>     STUB_tp;
+   int32_t           STUB_n;
+   std::vector<float>   STUB_pxGEN;
+   std::vector<float>   STUB_pyGEN;
+   std::vector<float>   STUB_etaGEN;
+   std::vector<int32_t>     STUB_layer;
+   std::vector<int32_t>     STUB_module;
+   std::vector<int32_t>     STUB_ladder;
+   std::vector<int32_t>     STUB_seg;
+   std::vector<int32_t>     STUB_strip;
+   std::vector<float>   STUB_x;
+   std::vector<float>   STUB_y;
+   std::vector<float>   STUB_z;
+   std::vector<float>   STUB_X0;
+   std::vector<float>   STUB_Y0;
+   std::vector<float>   STUB_Z0;
+
+   // Set branch addresses.
+   L1TrackTrigger->SetBranchAddress("evt",&evt);
+   L1TrackTrigger->SetBranchAddress("STUB_PHI0",&STUB_PHI0);
+   L1TrackTrigger->SetBranchAddress("STUB_tp",&STUB_tp);
+   L1TrackTrigger->SetBranchAddress("STUB_n",&STUB_n);
+   L1TrackTrigger->SetBranchAddress("STUB_pxGEN",&STUB_pxGEN);
+   L1TrackTrigger->SetBranchAddress("STUB_pyGEN",&STUB_pyGEN);
+   L1TrackTrigger->SetBranchAddress("STUB_etaGEN",&STUB_etaGEN);
+   L1TrackTrigger->SetBranchAddress("STUB_layer",&STUB_layer);
+   L1TrackTrigger->SetBranchAddress("STUB_module",&STUB_module);
+   L1TrackTrigger->SetBranchAddress("STUB_ladder",&STUB_ladder);
+   L1TrackTrigger->SetBranchAddress("STUB_seg",&STUB_seg);
+   L1TrackTrigger->SetBranchAddress("STUB_strip",&STUB_strip);
+   L1TrackTrigger->SetBranchAddress("STUB_x",&STUB_x);
+   L1TrackTrigger->SetBranchAddress("STUB_y",&STUB_y);
+   L1TrackTrigger->SetBranchAddress("STUB_z",&STUB_z);
+   L1TrackTrigger->SetBranchAddress("STUB_X0",&STUB_X0);
+   L1TrackTrigger->SetBranchAddress("STUB_Y0",&STUB_Y0);
+   L1TrackTrigger->SetBranchAddress("STUB_Z0",&STUB_Z0);
+
+
+  /*
+    Lecture des patterns
+  */
+  int hitIndex = 0;
+  int n_entries_MC = L1TrackTrigger->GetEntries();
+  cout<<n_entries_MC<<" events found"<<endl<<endl;
+  //HOUGHLOCAL* htl = new HOUGHLOCAL(0,PI,-0.01,0.01,64,64);
+  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,96);
+  //HoughCartesian* htl = new HoughCartesian(-0.0,0.03,0.0,0.03,128,32);
+  //HoughRZ* htr = new HoughRZ(PI/2,3*PI/2,-20,20,512,512);
+  //float xpos[1000],ypos[1000];
+  // Boucle sur les evenements
+  std::map<uint32_t,uint32_t> counts;
+
+  uint32_t nevmax=0;
+  if (nevmax!=0 && nevmax<n_entries_MC)
+    n_entries_MC=nevmax;
+  uint32_t nfaketot=0,nfaketot1=0;
+  time_t t0=time(0);
+  DEBUG_PRINT(logFile_,"The tree has %d entries \n",n_entries_MC);
+  int32_t stublen=9;
+  char buf[20000*stublen*sizeof(int32_t)];
+  int32_t* ibuf=( int32_t*) buf;
+  float* vbuf=( float*) buf;
+  FileEventProxy Raw_proxy("/dev/shm/RawData");
+  for (int j=0;j<n_entries_MC;++j)
+    {
+      L1TrackTrigger->GetEntry(j); // Load entries
+
+      uint32_t size=0;
+      for (int32_t is=0;is<STUB_n;is++)
+	{
+	  ibuf[is*stublen+0]=STUB_tp[is];
+	  ibuf[is*stublen+1]=STUB_layer[is];
+	  ibuf[is*stublen+2]=STUB_module[is];
+	  ibuf[is*stublen+3]=STUB_ladder[is];
+	  ibuf[is*stublen+4]=STUB_seg[is];
+	  ibuf[is*stublen+5]=STUB_strip[is];
+	  vbuf[is*stublen+6]=STUB_x[is];
+	  vbuf[is*stublen+7]=STUB_y[is];
+	  vbuf[is*stublen+8]=STUB_z[is];
+	  size+=stublen*sizeof(int32_t);
+	}
+      printf("Evt %d got %d stubs gives %d bytes \n",evt,STUB_n,size);
+      std::stringstream sn;
+      sn<<"Event_"<<evt;
+      Raw_proxy.Write(sn.str(),buf,size);
+    }
+  getchar();
+  std::vector<std::string> files;
+  Raw_proxy.List(files);
+  for (std::vector<std::string>::iterator it=files.begin();it!=files.end();it++)
+    {
+      uint32_t size_buf;
+      Raw_proxy.Read(*it,buf,size_buf);
+
+      std::cout<<*it<<" has size "<<size_buf<<" and "<<size_buf/stublen/sizeof(uint32_t)<<std::endl;
+      Raw_proxy.Erase(*it);
+    }
 }

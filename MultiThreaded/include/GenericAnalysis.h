@@ -56,6 +56,8 @@ public:
   void FillMapGuillaumeNtuple(std::string name);
   void FillMapSebastienNtuple(std::string name);
   void CPULoopTest(std::string fname);
+  void ReadRawL1TrackTrigger(std::string fname);
+
   void fill_histos();
   void associate();
   void event_hough(int isel);
