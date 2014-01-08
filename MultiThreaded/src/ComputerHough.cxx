@@ -10,7 +10,7 @@ ComputerHough::ComputerHough(HoughCut* cuts) :theCuts_(cuts)
   theZ_=NULL;
   theLayer_=NULL;
 
-  createHoughCPU(&ph_);
+  createHoughCPU(&ph_,768,3072,768);
   for (int i=0;i<96;i++)
     createHoughCPU(&phcand_[i]);
   for (int i=0;i<64;i++)
@@ -224,7 +224,122 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
 
 
 
-} 
+}
+void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)
+{
+  theNStub_=nstub;
+  theX_=x;
+  theY_=y;
+  theZ_=z;  
+  theLayer_=layer;
+  theCandidateVector_.clear();
+  // Initialisation depending on sector 
+  bool barrel=isel>=16 && isel<40;
+  bool inter=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
+  bool endcap=(isel<8)||(isel>=48);
+  float thmin=-PI/2,thmax=PI/2;
+  float rhmin=theCuts_->RhoMin,rhmax=theCuts_->RhoMax;
+  //printf("On appelle le GPU %d \n",theNStub_);
+  int ntheta=160;
+  int nrho=theCuts_->NRho;//8//12//192;
+  //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
+  if (barrel || inter)
+    {
+      ntheta=theCuts_->NTheta;//64;
+      if (isel%4==0) thmin=1.32;
+      if (isel%4==1) thmin=-1.04;
+      if (isel%4==2) thmin=-0.24;
+      if (isel%4==3) thmin=0.51;
+      thmax=thmin+1.25;
+    }
+
+  if (theNStub_>400)
+    {
+      ntheta*=2;
+      nrho*=2;
+    }
+  ntheta=960;
+  nrho=156;
+  if (inter)
+    {
+      ntheta=1056;
+      nrho=88;
+    }
+  theCuts_->NLayerRow=5;
+
+  initialiseHoughCPU(&ph_,theNStub_,ntheta,nrho,thmin,thmax,rhmin,rhmax);
+  // Rough process
+  fillConformalHoughCPU(&ph_,theX_,theY_,theZ_);
+  fillLayerHoughCPU(&ph_,theLayer_);
+		  //clearHough(&ph);
+  processHoughCPU(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0);
+  //printf("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph_.h_cand[0],ph_.max_val,ph_.nstub);
+  // Precise HT filling
+  uint32_t nc=(int)ph_.h_cand[0];
+  if (nc>512) nc=512;
+  clearHoughCPU(&phcand_[0]);
+  
+
+  // Loop on candidate
+  for (int ic=0;ic<nc;ic++)
+    {
+      phcand_[0].h_reg[20]=0;
+      int pattern=ph_.h_cand[ic+1]; // vcand[ic]
+      int ith=pattern&0X3FF;
+      int ir=(pattern>>10)&0x3FF;
+      //ith=(vcand[ic])&0x3FF;
+      //ir=(vcand[ic]>>10)&0x3FF;
+      int ns=(pattern>>20)&0x3FF;
+      if (ns<theCuts_->NStubLowCandidate) continue;//if (ns<3) continue;
+      double PT=1./2./fabs(GET_R_VALUE(ph_,ir))*0.3*3.8/100.;
+      if (PT<1.5) continue;
+      //printf("%f \n",fabs(GET_R_VALUE(ph,ir)));
+
+      mctrack_t t;
+      // RZ  & R Phi regression
+      initialiseHoughCPU(&phcand_[0],theNStub_,32,32,-PI/2,PI/2,-150.,150.);
+      copyPositionHoughCPU(&ph_,pattern,&phcand_[0],1,true);
+      phcand_[0].nstub=int( phcand_[0].h_reg[20]);
+      if (phcand_[0].h_reg[60+6]<1.7) continue;
+      if ( phcand_[0].h_reg[20]<=0) continue;
+      
+      if ( phcand_[0].h_reg[70+9]<1.5) continue; //at least 2 Z points
+      t.z0=-phcand_[0].h_reg[70+1]/phcand_[0].h_reg[70+0];
+      t.eta=phcand_[0].h_reg[70+8];
+      if ( fabs(t.z0)>30.) continue;
+      
+	      
+      float theta=GET_THETA_VALUE(ph_,ith);
+      float r=GET_R_VALUE(ph_,ir);
+      
+      double a=-1./tan(theta);
+      double b=r/sin(theta);
+      
+      
+      //
+      double R=1./2./fabs(r);
+      double xi=-a/2./b;
+      double yi=1./2./b;
+      double g_pt=0.3*3.8*R/100.;
+      //g_phi=atan(a);
+      double g_phi=theta-PI/2.;
+      if (g_phi<0) g_phi+=2*PI;
+      ComputerHough::Convert(theta,r,&t);
+      t.nhits=(pattern>>20)&0x3FF;
+      t.theta=theta;
+      t.r=r;
+      
+      t.pt=phcand_[0].h_reg[60+6];
+      t.phi=phcand_[0].h_reg[60+2];
+      t.nhits=(pattern>>20)&0x3FF;
+      
+      theCandidateVector_.push_back(t);
+      
+      
+      
+    }
+}
+ 
 void ComputerHough::Convert(double theta,double r,mctrack_t *m)
 {
   double a=-1./tan(theta);

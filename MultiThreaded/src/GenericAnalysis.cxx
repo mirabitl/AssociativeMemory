@@ -11,11 +11,13 @@ using namespace std;
 static TCanvas* CanvasGPU=NULL;
 #ifdef USE_CUDA
 #include "libhough.h"
+#include "CudaHough.h"
 #endif
 #ifdef USE_CPU
 #include "libhoughCPU.h"
-#endif
 #include "ComputerHough.h"
+#endif
+
 int theSectorMin=16;
 int theSectorMax=39;
 #define USEMAIN
@@ -62,7 +64,9 @@ void GenericAnalysis::AddFile(std::string name,GenericAnalysis::FileType type)
     //FillMapSebastienNtuple(name);
     CPULoopTest(name);
 #else
-    FillMapOneShot(name);    //    
+  CPULoopTest(name);
+  //FillMapOneShot(name);    //   
+  //FillMapSebastienNtuple(name);
 #endif
   //FillMapEightSector(name);
 
@@ -4128,12 +4132,25 @@ void GenericAnalysis::CPULoopTest(std::string fname)
     }
   n_entries=1000;
 
+  HoughCut cuts;
+#ifdef USE_CPU
+  ComputerHough ch(&cuts);
   float *h_x=(float *) malloc(1024*sizeof(float));
   float *h_y= (float *) malloc(1024*sizeof(float));
   float *h_z=(float *) malloc(1024*sizeof(float));
   unsigned int *h_layer=(unsigned int *) malloc(1024*sizeof(unsigned int));
-  HoughCut cuts;
-  ComputerHough ch(&cuts);
+
+
+#endif
+#ifdef USE_CUDA
+  CudaHough ch(&cuts);
+  float *h_x=(float *) h_malloc(1024*sizeof(float));
+  float *h_y= (float *) h_malloc(1024*sizeof(float));
+  float *h_z=(float *) h_malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) h_malloc(1024*sizeof(unsigned int));
+
+#endif
+
   ch.DefaultCuts();
   float totalTime=0;
   
@@ -4164,14 +4181,14 @@ void GenericAnalysis::CPULoopTest(std::string fname)
   
       L1TT->GetEntry(evtnum);
 
-      cout <<endl;
+      //cout <<endl;
       cout << "Analyzing event " << evt <<endl;
-      cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
-      cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
-      cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
-      cout << endl;
-      cout << "Now looping over the patterns... " <<endl;
-      cout << endl;
+      // cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
+      // cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
+      // cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
+      // cout << endl;
+      // cout << "Now looping over the patterns... " <<endl;
+      // cout << endl;
       //getchar();
       // Loop over patterns
 
@@ -4457,8 +4474,11 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
 	      if (gpu_nstub<1024) 
 		{
-		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
-		 
+
+		  //		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+
+		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+
 
 
 
@@ -4492,7 +4512,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 	      */
 	    }
 	}
-      if (evtnum%1 ==0)
+      if (evtnum%100 ==0)
 	PrintSectorMap();
     }
   printf("TotalTime %f\n",totalTime);
