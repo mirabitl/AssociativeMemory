@@ -58,7 +58,7 @@ public:
   void CPULoopTest(std::string fname);
   void ReadRawL1TrackTrigger(std::string fname);
   void ReadFullInfo(std::string fname);
-  void MemoryLoopTest(std::string directory,uint32_t sector);
+  void MemoryLoopTest(std::string directory,int32_t sector=-1);
   void fill_histos();
   void associate();
   void event_hough(int isel);

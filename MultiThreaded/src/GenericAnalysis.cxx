@@ -36,8 +36,8 @@ int main(int argc, char* argv[])
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
   //a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
-  a.ReadFullInfo("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root");
-  a.MemoryLoopTest("/dev/shm/Pattern",theSectorMin);
+  //a.ReadFullInfo("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root");
+  a.MemoryLoopTest("/dev/shm/Pattern");
 }
 #endif
 bool mctsort(mctrack_t t1,mctrack_t t2)
@@ -4842,7 +4842,7 @@ void GenericAnalysis::ReadFullInfo(std::string fname)
 
 
 }
-void GenericAnalysis::MemoryLoopTest(std::string directory,uint32_t sector)
+void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
 {
 
  HoughCut cuts;
@@ -4866,7 +4866,13 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,uint32_t sector)
 
   ch.DefaultCuts();
   uint32_t ntot=0;
-  for (int isel=theSectorMin;isel<theSectorMax;isel++)
+  int secmin=theSectorMin,secmax=theSectorMax;
+  if (sector>=0)
+    {
+      secmin=sector; secmax=sector+1;
+    }
+    
+  for (int isel=secmin;isel<secmax;isel++)
     {
   FileEventProxy proxy(directory);
   stringstream spat;
