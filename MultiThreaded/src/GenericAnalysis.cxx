@@ -33,9 +33,11 @@ int main(int argc, char* argv[])
   TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
-  //@@@@@@@@@@ a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
+  //a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
-  a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
+  //a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
+  a.ReadFullInfo("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root");
+  a.MemoryLoopTest("/dev/shm/Pattern",theSectorMin);
 }
 #endif
 bool mctsort(mctrack_t t1,mctrack_t t2)
@@ -4175,7 +4177,14 @@ void GenericAnalysis::CPULoopTest(std::string fname)
      hnch=(TH1F*)theRootHandler_->BookTH1("nch",200,0.,200.);
      hnct=(TH1F*)theRootHandler_->BookTH1("nct",200,0.,200.);
      hlay=(TH2F*)theRootHandler_->BookTH2("lay",25,0.,25.,512,0.,512.);
-   }		 
+   }	
+
+ // FileEventProxy proxy("/dev/shm/Pattern");
+ // int32_t stublen=5;
+ // char buf[20000*stublen*sizeof(int32_t)];
+ // int32_t* ibuf=( int32_t*) buf;
+ // float* vbuf=( float*) buf;
+ int ntot=0;
   for(int evtnum=1;evtnum<n_entries;evtnum++)
     {
       int gpu_nstub=0;
@@ -4480,7 +4489,23 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
 		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
+		  // uint32_t size_buf=0,ns=0;
+	      // 	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
+	      // 	    {
 
+	      // 	      ibuf[ns*stublen+0]=is->second.layer&0xFF;
+	      // 	      ibuf[ns*stublen+1]=is->second.tp;
+	      // 	      vbuf[ns*stublen+2]=is->second.x;
+	      // 	      vbuf[ns*stublen+3]=is->second.y;
+	      // 	      vbuf[ns*stublen+4]=is->second.z;
+	      // //printf("%d -> %d %d \n",ns,is->second.layer,ibuf[ns*stublen+0]);
+	      // 	      size_buf+=stublen*sizeof(uint32_t);
+	      // 	      ns++;
+	      // 	    }
+	      // 	  std::stringstream s;
+	      // 	  s<<"Event_"<<evt<<"_"<<isel;
+	      // 	  proxy.Write(s.str(),buf,size_buf);
+	      // 	  //printf("Evt %d_%d got %d stubs gives %d bytes \n",evt,isel,ns,size_buf);
 
 
 
@@ -4488,11 +4513,11 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 		  for (std::vector<mctrack_t>::iterator it=v.begin();it!=v.end();it++)
 		    theHoughCandidateVector_.push_back((*it));
 
-
+		  ntot+=v.size();
 
 
 		  
-		
+		  printf("%d %d %d => %d %d \n",evt,isel,gpu_nstub,v.size(),ntot);
 		  
 		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
 
@@ -4593,13 +4618,7 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
   int hitIndex = 0;
   int n_entries_MC = L1TrackTrigger->GetEntries();
   cout<<n_entries_MC<<" events found"<<endl<<endl;
-  //HOUGHLOCAL* htl = new HOUGHLOCAL(0,PI,-0.01,0.01,64,64);
-  HOUGHLOCAL* htl = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,96,96);
-  //HoughCartesian* htl = new HoughCartesian(-0.0,0.03,0.0,0.03,128,32);
-  //HoughRZ* htr = new HoughRZ(PI/2,3*PI/2,-20,20,512,512);
-  //float xpos[1000],ypos[1000];
-  // Boucle sur les evenements
-  std::map<uint32_t,uint32_t> counts;
+  
 
   uint32_t nevmax=0;
   if (nevmax!=0 && nevmax<n_entries_MC)
@@ -4612,6 +4631,7 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
   int32_t* ibuf=( int32_t*) buf;
   float* vbuf=( float*) buf;
   FileEventProxy Raw_proxy("/dev/shm/RawData");
+
   for (int j=0;j<n_entries_MC;++j)
     {
       L1TrackTrigger->GetEntry(j); // Load entries
@@ -4635,15 +4655,258 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
       sn<<"Event_"<<evt;
       Raw_proxy.Write(sn.str(),buf,size);
     }
-  getchar();
-  std::vector<std::string> files;
-  Raw_proxy.List(files);
-  for (std::vector<std::string>::iterator it=files.begin();it!=files.end();it++)
-    {
-      uint32_t size_buf;
-      Raw_proxy.Read(*it,buf,size_buf);
+  // getchar();
+  // std::vector<std::string> files;
+  // Raw_proxy.List(files);
+  // for (std::vector<std::string>::iterator it=files.begin();it!=files.end();it++)
+  //   {
+  //     uint32_t size_buf;
+  //     Raw_proxy.Read(*it,buf,size_buf);
 
-      std::cout<<*it<<" has size "<<size_buf<<" and "<<size_buf/stublen/sizeof(uint32_t)<<std::endl;
-      Raw_proxy.Erase(*it);
+  //     std::cout<<*it<<" has size "<<size_buf<<" and "<<size_buf/stublen/sizeof(uint32_t)<<std::endl;
+  //     Raw_proxy.Erase(*it);
+  //   }
+}
+void GenericAnalysis::ReadFullInfo(std::string fname)
+{
+
+  TChain *FullInfo    = new TChain("FullInfo"); // infos about patterns
+
+
+  FullInfo->Add(fname.c_str());
+
+//Declaration of leaves types
+ 
+  int evt;             // Event number (for PU event, where there is more than 1 primary)
+  int n_stub_total;    // The total number of stubs in the event
+  int n_stub_inpat;    // The total number of stubs in the event
+  int n_stub;          // The total number of stubs contained in matched patterns in the event
+
+  std::vector<float>   *stub_x=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<float>   *stub_x_2=new std::vector<float>;      // x coordinates of ALL the stubs
+  std::vector<float>   *stub_y_2=new std::vector<float>;      // y coordinates of ALL the stubs
+  std::vector<float>   *stub_z_2=new std::vector<float>;      // z coordinates of ALL the stubs
+  std::vector<int>     *stub_layer=new std::vector<int>;  // layer number of ALL the stubs
+  std::vector<int>     *stub_ladder=new std::vector<int>; // ladder number of ALL the stubs
+  std::vector<int>     *stub_module=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_tp=new std::vector<int>;     // tp index of ALL the stubs (in part_*** vectors of this tree!!!!)
+  std::vector<int>     *stub_inpatt=new std::vector<int>; // is the stub in a pattern (1) of not (0)?
+
+  int n_part;                        // The total number of particles inducing at least one stub in the event
+
+  std::vector<int>     *part_pdg=new std::vector<int>;    // PDG id of the particles
+  std::vector<int>     *part_nsec=new std::vector<int>;   // In how many trigger towers this particle hit more than 4 different layers/disks?
+  std::vector<int>     *part_nhits=new std::vector<int>;  // How many different layers/disks are hit by the particle?
+  std::vector<int>     *part_npatt=new std::vector<int>;  // How many patterns contains more than 4 stubs of the particle (in 4 different layers/disks)?
+  std::vector<float>   *part_pt=new std::vector<float>;     // pt of the particles
+  std::vector<float>   *part_rho=new std::vector<float>;    // rho0 of the particles
+  std::vector<float>   *part_z0=new std::vector<float>;     // z0 of the particles
+  std::vector<float>   *part_eta=new std::vector<float>;    // eta of the particles 
+  std::vector<float>   *part_phi=new std::vector<float>;    // phi of the particles
+
+  int n_patt;                        // The total number of patterns matched in the event
+
+  // Sector id of all the patterns
+  std::vector<int>                  *patt_sec=new std::vector<int>;   
+
+  // tp index of ALL the particles contained in the pattern (in part_*** vectors of this tree!!!!)
+  std::vector< std::vector<int> >   *patt_parts=new std::vector< std::vector<int> >; 
+
+  // index of ALL the stubs contained in the pattern (in stub_*** vectors of this tree!!!!) 
+  std::vector< std::vector<int> >   *patt_stubs=new std::vector< std::vector<int> >; ; 
+
+
+   // Set branch addresses.
+   FullInfo->SetBranchAddress("evt",&evt);
+   FullInfo->SetBranchAddress("n_stub_total",&n_stub_total);
+   FullInfo->SetBranchAddress("n_stub_inpat",&n_stub_inpat);
+   FullInfo->SetBranchAddress("stub_x",&stub_x);
+   FullInfo->SetBranchAddress("stub_y",&stub_y);
+   FullInfo->SetBranchAddress("stub_z",&stub_z);
+   FullInfo->SetBranchAddress("stub_x_2",&stub_x_2);
+   FullInfo->SetBranchAddress("stub_y_2",&stub_y_2);
+   FullInfo->SetBranchAddress("stub_z_2",&stub_z_2);
+   FullInfo->SetBranchAddress("stub_layer",&stub_layer);
+   FullInfo->SetBranchAddress("stub_ladder",&stub_ladder);
+   FullInfo->SetBranchAddress("stub_module",&stub_module);
+   FullInfo->SetBranchAddress("stub_tp",&stub_tp);
+   FullInfo->SetBranchAddress("stub_inpatt",&stub_inpatt);
+   FullInfo->SetBranchAddress("n_part",&n_part);
+   FullInfo->SetBranchAddress("part_pdg",&part_pdg);
+   FullInfo->SetBranchAddress("part_nsec",&part_nsec);
+   FullInfo->SetBranchAddress("part_nhits",&part_nhits);
+   FullInfo->SetBranchAddress("part_npatt",&part_npatt);
+   FullInfo->SetBranchAddress("part_pt",&part_pt);
+   FullInfo->SetBranchAddress("part_rho",&part_rho);
+   FullInfo->SetBranchAddress("part_z0",&part_z0);
+   FullInfo->SetBranchAddress("part_eta",&part_eta);
+   FullInfo->SetBranchAddress("part_phi",&part_phi);
+   FullInfo->SetBranchAddress("n_patt",&n_patt);
+   FullInfo->SetBranchAddress("patt_sec",&patt_sec);
+   FullInfo->SetBranchAddress("patt_parts",&patt_parts);
+   FullInfo->SetBranchAddress("patt_stubs",&patt_stubs);
+
+   FileEventProxy proxy("/dev/shm/Pattern");
+   int32_t stublen=5;
+   char buf[20000*stublen*sizeof(int32_t)];
+   int32_t* ibuf=( int32_t*) buf;
+   float* vbuf=( float*) buf;
+   int n_entries = FullInfo->GetEntries();
+  for(int evtnum=1;evtnum<n_entries;evtnum++)
+    {
+      int gpu_nstub=0;
+      FullInfo->GetEntry(evtnum);
+
+      //cout <<endl;
+      cout << "Analyzing event " << evt <<endl;
+      // cout << "where " << n_stub_total << " stub(s) were produced" <<endl;
+      // cout << n_part << " particle(s) have induced at least one stub in the tracker" <<endl;
+      // cout << "      " << n_stub << " stub(s) are contained in the " << n_patt << " pattern(s) matched in this event" <<endl;
+      // cout << endl;
+      // cout << "Now looping over the patterns... " <<endl;
+      // cout << endl;
+      //getchar();
+      // Loop over sector
+      for (uint16_t ise=0;ise<56;ise++)
+	{
+
+	  int idx_s;
+	  int idx_p;
+	  theStubMap_.clear();
+
+      
+	  for (int k=0;k<n_patt;++k)
+	    {
+
+	      int isect=patt_sec->at(k);
+	      if (isect!=ise) continue;
+	      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+		{
+		  idx_s = patt_stubs->at(k).at(kk);
+		  idx_p = stub_tp->at(idx_s);
+		  uint32_t hitIndex=idx_s;
+	      
+		  //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
+		  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+		  if (is==theStubMap_.end())
+		    {
+		      stub_t s;
+		      s.id=idx_s;
+		      s.x=stub_x->at(hitIndex);
+		      s.y=stub_y->at(hitIndex);
+		      s.z=stub_z->at(hitIndex);
+		      s.r2=s.x*s.x+s.y*s.y;;
+		      s.r=sqrt(s.r2);
+		      s.xp=s.x/s.r2;
+		      s.yp=s.y/s.r2;
+		      s.tp=stub_tp->at(hitIndex);
+		      s.layer =stub_layer->at(hitIndex);
+		      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+		      std::pair<uint32_t,stub_t> p(idx_s,s);
+		      theStubMap_.insert(p);
+		    }
+		}
+	    
+
+	    }
+      
+
+
+
+
+    
+	  uint32_t size_buf=0,ns=0;
+	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
+	    {
+
+	      ibuf[ns*stublen+0]=is->second.layer&0xFF;
+	      ibuf[ns*stublen+1]=is->second.tp;
+	      vbuf[ns*stublen+2]=is->second.x;
+	      vbuf[ns*stublen+3]=is->second.y;
+	      vbuf[ns*stublen+4]=is->second.z;
+	      //printf("%d -> %d %d \n",ns,is->second.layer,ibuf[ns*stublen+0]);
+	      size_buf+=stublen*sizeof(uint32_t);
+	      ns++;
+	    }
+	  std::stringstream s;
+	  s<<"Event_"<<evt<<"_"<<ise;
+	  proxy.Write(s.str(),buf,size_buf);
+	  printf("Evt %d_%d got %d stubs gives %d bytes \n",evt,ise,ns,size_buf);
+	  //getchar();
+	}
+	
+
     }
+
+
+}
+void GenericAnalysis::MemoryLoopTest(std::string directory,uint32_t sector)
+{
+
+ HoughCut cuts;
+#ifdef USE_CPU
+  ComputerHough ch(&cuts);
+  float *h_x=(float *) malloc(1024*sizeof(float));
+  float *h_y= (float *) malloc(1024*sizeof(float));
+  float *h_z=(float *) malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) malloc(1024*sizeof(unsigned int));
+
+
+#endif
+#ifdef USE_CUDA
+  CudaHough ch(&cuts);
+  float *h_x=(float *) h_malloc(1024*sizeof(float));
+  float *h_y= (float *) h_malloc(1024*sizeof(float));
+  float *h_z=(float *) h_malloc(1024*sizeof(float));
+  unsigned int *h_layer=(unsigned int *) h_malloc(1024*sizeof(unsigned int));
+
+#endif
+
+  ch.DefaultCuts();
+  uint32_t ntot=0;
+  for (int isel=theSectorMin;isel<theSectorMax;isel++)
+    {
+  FileEventProxy proxy(directory);
+  stringstream spat;
+  spat<<"*_"<<isel;
+  std::vector<std::string> fname;
+  proxy.List(fname,spat.str());
+
+  int32_t stublen=5;
+  char buf[20000*stublen*sizeof(int32_t)];
+  int32_t* ibuf=( int32_t*) buf;
+  float* vbuf=( float*) buf;
+
+  
+
+
+  for (std::vector<std::string>::iterator ins=fname.begin();ins!=fname.end();ins++)
+    {
+
+      uint32_t size_buf;
+      proxy.Read((*ins),buf,size_buf);
+      int ns=size_buf/stublen/sizeof(int32_t);
+      //std::cout<<*ins<<" "<<ns<<" "<<size_buf<<std::endl;
+      if (ns<3) continue;
+      for (int i=0;i<ns;i++)
+	{
+	  h_layer[i]=ibuf[i*stublen+0];
+	  h_x[i]=vbuf[i*stublen+2];
+	  h_y[i]=vbuf[i*stublen+3];
+	  h_z[i]=vbuf[i*stublen+4];
+	  //printf("%d -> %d %f %f %f \n",i,h_layer[i],h_x[i],h_y[i],h_z[i]);
+	}
+      ch.ComputeOneShot(isel,ns,h_x,h_y,h_z,h_layer);
+      std::vector<mctrack_t> &v=ch.getCandidates();
+      //
+      ntot+=v.size();
+
+      //std::cout<<*ins<<" "<<ns<<" "<<size_buf<<" found "<<v.size()<<" tracks "<<ntot<< std::endl;
+      //printf("%s %d  => %d %d \n",(*ins).c_str(),ns,v.size(),ntot);
+      //      getchar();
+    }
+    }
+  std::cout<<ntot<<std::endl;
 }

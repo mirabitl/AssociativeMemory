@@ -57,7 +57,8 @@ public:
   void FillMapSebastienNtuple(std::string name);
   void CPULoopTest(std::string fname);
   void ReadRawL1TrackTrigger(std::string fname);
-
+  void ReadFullInfo(std::string fname);
+  void MemoryLoopTest(std::string directory,uint32_t sector);
   void fill_histos();
   void associate();
   void event_hough(int isel);

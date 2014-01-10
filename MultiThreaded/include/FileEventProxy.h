@@ -9,7 +9,7 @@ class FileEventProxy
  public:
   FileEventProxy(std::string directory="/dev/shm/Events");
   void CreateDirectories();
-  void List(std::vector<std::string> &names);
+  void List(std::vector<std::string> &names,std::string pattern="*");
   void Write(std::string name,char* buf,uint32_t size);
   void Read(std::string name,char* buf,uint32_t& size);
   void Erase(std::string name);

@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <sstream>
 extern  int alphasort(); //Inbuilt sorting function  
 #define FALSE 0  
@@ -40,7 +41,7 @@ void FileEventProxy::CreateDirectories()
 
 }
 
-void FileEventProxy::List(std::vector<std::string> &names)
+void FileEventProxy::List(std::vector<std::string> &names,std::string pattern)
 {
   names.clear();
   int count,i;  
@@ -52,8 +53,15 @@ void FileEventProxy::List(std::vector<std::string> &names)
   /* If no files found, make a non-selectable menu item */  
   for (i=1; i<count+1; ++i)
     {
-      std::string s(files[i-1]->d_name);
-      names.push_back(s);
+      int  r = 0;
+
+      r = fnmatch(pattern.c_str(), files[i-1]->d_name, FNM_PERIOD);
+
+      if (r==0)
+	{
+	  std::string s(files[i-1]->d_name);
+	  names.push_back(s);
+	}
     }
 }
 void FileEventProxy::Write(std::string name,char* cbuf,uint32_t size_buf)
