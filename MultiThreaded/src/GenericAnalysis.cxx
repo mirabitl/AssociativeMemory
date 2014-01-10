@@ -4871,7 +4871,7 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
     {
       secmin=sector; secmax=sector+1;
     }
-    
+  FileEventProxy wproxy("/dev/shm/TrackCandidates");
   for (int isel=secmin;isel<secmax;isel++)
     {
   FileEventProxy proxy(directory);
@@ -4885,7 +4885,7 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
   int32_t* ibuf=( int32_t*) buf;
   float* vbuf=( float*) buf;
 
-  
+  char tkbuf[1000*sizeof(mctrack_t)];
 
 
   for (std::vector<std::string>::iterator ins=fname.begin();ins!=fname.end();ins++)
@@ -4908,8 +4908,14 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
       std::vector<mctrack_t> &v=ch.getCandidates();
       //
       ntot+=v.size();
-
-      //std::cout<<*ins<<" "<<ns<<" "<<size_buf<<" found "<<v.size()<<" tracks "<<ntot<< std::endl;
+      int size_buf_tk=0;
+      for (std::vector<mctrack_t>::iterator it=v.begin();it!=v.end();it++)
+	{
+	  memcpy(&tkbuf[size_buf_tk],&(*it),sizeof(mctrack_t));
+	  size_buf_tk+=sizeof(mctrack_t);
+	}
+      wproxy.Write((*ins),tkbuf,size_buf_tk);
+      //std::cout<<*ins<<" "<<ns<<" "<<size_buf_tk<<" found "<<v.size()<<" tracks "<<ntot<< std::endl;
       //printf("%s %d  => %d %d \n",(*ins).c_str(),ns,v.size(),ntot);
       //      getchar();
     }
