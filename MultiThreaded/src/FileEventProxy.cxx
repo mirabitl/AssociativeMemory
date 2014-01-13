@@ -72,7 +72,7 @@ void FileEventProxy::Write(std::string name,char* cbuf,uint32_t size_buf)
   snc<<theDirectory_<<"/closed/"<<name;
   
 
-  int fd= ::open(sn.str().c_str(),O_CREAT| O_RDWR | O_NONBLOCK,S_IRWXU);
+  int fd= ::open(sn.str().c_str(),O_CREAT| O_RDWR | O_NONBLOCK,S_IRWXU|S_IRWXG|S_IRWXO);
   if (fd<0)
     {
       printf("%s No way to store to file %s:",__PRETTY_FUNCTION__,sn.str().c_str());
@@ -88,7 +88,7 @@ void FileEventProxy::Write(std::string name,char* cbuf,uint32_t size_buf)
      }
    ::close(fd);
   
-   fd= ::open(snc.str().c_str(),O_CREAT| O_RDWR | O_NONBLOCK,S_IRWXU);
+   fd= ::open(snc.str().c_str(),O_CREAT| O_RDWR | O_NONBLOCK,S_IRWXU|S_IRWXG|S_IRWXO);
    if (fd<0)
     {
       printf("%s No way to store to file %s:",__PRETTY_FUNCTION__,snc.str().c_str());
