@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
-  //a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
   //a.ReadFullInfo("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root");
   a.MemoryLoopTest("/dev/shm/Pattern");
 }
@@ -4573,24 +4573,25 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
   
 //Declaration of leaves types
    int32_t           evt;
-   std::vector<float>   STUB_PHI0;
-   std::vector<int32_t>     STUB_tp;
+  
    int32_t           STUB_n;
-   std::vector<float>   STUB_pxGEN;
-   std::vector<float>   STUB_pyGEN;
-   std::vector<float>   STUB_etaGEN;
-   std::vector<int32_t>     STUB_layer;
-   std::vector<int32_t>     STUB_module;
-   std::vector<int32_t>     STUB_ladder;
-   std::vector<int32_t>     STUB_seg;
-   std::vector<int32_t>     STUB_strip;
-   std::vector<float>   STUB_x;
-   std::vector<float>   STUB_y;
-   std::vector<float>   STUB_z;
-   std::vector<float>   STUB_X0;
-   std::vector<float>   STUB_Y0;
-   std::vector<float>   STUB_Z0;
-
+  
+ std::vector<float>* STUB_PHI0=new  std::vector<float>;
+ std::vector<int32_t>* STUB_tp=new  std::vector<int32_t> ;
+ std::vector<float>* STUB_pxGEN=new  std::vector<float>;
+ std::vector<float>* STUB_pyGEN=new  std::vector<float>;
+ std::vector<float>* STUB_etaGEN=new  std::vector<float>;
+ std::vector<int32_t>* STUB_layer=new  std::vector<int32_t> ;
+ std::vector<int32_t>* STUB_module=new  std::vector<int32_t> ;
+ std::vector<int32_t>* STUB_ladder=new  std::vector<int32_t> ;
+ std::vector<int32_t>* STUB_seg=new  std::vector<int32_t> ;
+ std::vector<int32_t>* STUB_strip=new  std::vector<int32_t> ;
+ std::vector<float>* STUB_x=new  std::vector<float>;
+ std::vector<float>* STUB_y=new  std::vector<float>;
+ std::vector<float>* STUB_z=new  std::vector<float>;
+ std::vector<float>* STUB_X0=new  std::vector<float>;
+ std::vector<float>* STUB_Y0=new  std::vector<float>;
+ std::vector<float>* STUB_Z0=new  std::vector<float>;
    // Set branch addresses.
    L1TrackTrigger->SetBranchAddress("evt",&evt);
    L1TrackTrigger->SetBranchAddress("STUB_PHI0",&STUB_PHI0);
@@ -4639,15 +4640,15 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
       uint32_t size=0;
       for (int32_t is=0;is<STUB_n;is++)
 	{
-	  ibuf[is*stublen+0]=STUB_tp[is];
-	  ibuf[is*stublen+1]=STUB_layer[is];
-	  ibuf[is*stublen+2]=STUB_module[is];
-	  ibuf[is*stublen+3]=STUB_ladder[is];
-	  ibuf[is*stublen+4]=STUB_seg[is];
-	  ibuf[is*stublen+5]=STUB_strip[is];
-	  vbuf[is*stublen+6]=STUB_x[is];
-	  vbuf[is*stublen+7]=STUB_y[is];
-	  vbuf[is*stublen+8]=STUB_z[is];
+	  ibuf[is*stublen+0]=STUB_tp->at(is);
+	  ibuf[is*stublen+1]=STUB_layer->at(is);
+	  ibuf[is*stublen+2]=STUB_module->at(is);
+	  ibuf[is*stublen+3]=STUB_ladder->at(is);
+	  ibuf[is*stublen+4]=STUB_seg->at(is);
+	  ibuf[is*stublen+5]=STUB_strip->at(is);
+	  vbuf[is*stublen+6]=STUB_x->at(is);
+	  vbuf[is*stublen+7]=STUB_y->at(is);
+	  vbuf[is*stublen+8]=STUB_z->at(is);
 	  size+=stublen*sizeof(int32_t);
 	}
       printf("Evt %d got %d stubs gives %d bytes \n",evt,STUB_n,size);
