@@ -584,7 +584,7 @@ void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,u
   int threads1=p->ntheta;
   int grid2=p->nrho;
   //printf("%d %d %d === %d \n",p->nstub,p->ntheta,p->nrho,mode);
-  memset(p->d_val,0,p->max_theta*p->max_stub*sizeof(int));
+  memset(p->d_val,0,p->max_theta*p->max_stub*sizeof(short));
   memset(p->d_hough,0,p->max_theta*p->max_rho*sizeof(int));
   memset(p->d_hough_layer,0,p->max_theta*p->max_rho*sizeof(int));
   //getchar();

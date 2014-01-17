@@ -33,11 +33,21 @@ int main(int argc, char* argv[])
   TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
-  //a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
+  a.AddFile("/scratch/output_PU4T_32_1000_NEW.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
-  a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
-  //a.ReadFullInfo("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root");
-  a.MemoryLoopTest("/dev/shm/Pattern");
+  /*
+    a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_02_light.root",112);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_03_light.root",224);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_04_light.root",336);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_05_light.root",448);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_06_light.root",556);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_07_light.root",668);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_08_light.root",780);
+  a.ReadRawL1TrackTrigger("/scratch/PU4T_09_light.root",892);
+  */
+  //a.ReadFullInfo("/scratch/output_PU4T_32_1000_NEW.root",0);
+  //a.MemoryLoopTest("/dev/shm/Pattern");
 }
 #endif
 bool mctsort(mctrack_t t1,mctrack_t t2)
@@ -4479,10 +4489,10 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 	      INFO_PRINT("MC map size %d Good %d \n",(int) theMCMap_.size(),ngood);
 	      //getchar();
 	      // Make analysis
-	      if (ngood==0) continue;
+	      //if (ngood==0) continue;
 
 
-	      if (gpu_nstub<1024) 
+	      if (gpu_nstub<1024 &&gpu_nstub>4) 
 		{
 
 		  //		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
@@ -4548,7 +4558,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 }
 
 
-void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
+void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname,int evtshift)
 
 {
   
@@ -4653,7 +4663,7 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
 	}
       printf("Evt %d got %d stubs gives %d bytes \n",evt,STUB_n,size);
       std::stringstream sn;
-      sn<<"Event_"<<evt;
+      sn<<"Event_"<<evt+evtshift;
       Raw_proxy.Write(sn.str(),buf,size);
     }
   // getchar();
@@ -4668,7 +4678,7 @@ void GenericAnalysis::ReadRawL1TrackTrigger(std::string fname)
   //     Raw_proxy.Erase(*it);
   //   }
 }
-void GenericAnalysis::ReadFullInfo(std::string fname)
+void GenericAnalysis::ReadFullInfo(std::string fname,int mode)
 {
 
   TChain *FullInfo    = new TChain("FullInfo"); // infos about patterns
@@ -4692,6 +4702,8 @@ void GenericAnalysis::ReadFullInfo(std::string fname)
   std::vector<int>     *stub_layer=new std::vector<int>;  // layer number of ALL the stubs
   std::vector<int>     *stub_ladder=new std::vector<int>; // ladder number of ALL the stubs
   std::vector<int>     *stub_module=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_segment=new std::vector<int>; // module number of ALL the stubs
+  std::vector<int>     *stub_strip=new std::vector<int>; // module number of ALL the stubs
   std::vector<int>     *stub_tp=new std::vector<int>;     // tp index of ALL the stubs (in part_*** vectors of this tree!!!!)
   std::vector<int>     *stub_inpatt=new std::vector<int>; // is the stub in a pattern (1) of not (0)?
 
@@ -4732,6 +4744,8 @@ void GenericAnalysis::ReadFullInfo(std::string fname)
    FullInfo->SetBranchAddress("stub_layer",&stub_layer);
    FullInfo->SetBranchAddress("stub_ladder",&stub_ladder);
    FullInfo->SetBranchAddress("stub_module",&stub_module);
+   FullInfo->SetBranchAddress("stub_segment",&stub_segment);
+   FullInfo->SetBranchAddress("stub_strip",&stub_strip);
    FullInfo->SetBranchAddress("stub_tp",&stub_tp);
    FullInfo->SetBranchAddress("stub_inpatt",&stub_inpatt);
    FullInfo->SetBranchAddress("n_part",&n_part);
@@ -4749,11 +4763,18 @@ void GenericAnalysis::ReadFullInfo(std::string fname)
    FullInfo->SetBranchAddress("patt_parts",&patt_parts);
    FullInfo->SetBranchAddress("patt_stubs",&patt_stubs);
 
-   FileEventProxy proxy("/dev/shm/Pattern");
-   int32_t stublen=5;
+   FileEventProxy p_proxy("/dev/shm/PatternFromFile");
+   int32_t pstublen=5;
+   char pbuf[20000*pstublen*sizeof(int32_t)];
+   int32_t* ipbuf=( int32_t*) pbuf;
+   float* vpbuf=( float*) pbuf;
+
+   int32_t stublen=9;
    char buf[20000*stublen*sizeof(int32_t)];
    int32_t* ibuf=( int32_t*) buf;
    float* vbuf=( float*) buf;
+   FileEventProxy Raw_proxy("/dev/shm/RawData");
+
    int n_entries = FullInfo->GetEntries();
   for(int evtnum=1;evtnum<n_entries;evtnum++)
     {
@@ -4770,76 +4791,101 @@ void GenericAnalysis::ReadFullInfo(std::string fname)
       // cout << endl;
       //getchar();
       // Loop over sector
-      for (uint16_t ise=0;ise<56;ise++)
+      if (mode==0) // Read all stubs
 	{
-
-	  int idx_s;
-	  int idx_p;
-	  theStubMap_.clear();
-
-      
-	  for (int k=0;k<n_patt;++k)
+	  int size=0;
+	  printf("%d \n",n_stub_total);
+	  for (int is=0;is<n_stub_total;is++)
+	    {
+	      ibuf[is*stublen+0]=stub_tp->at(is);
+	      ibuf[is*stublen+1]=stub_layer->at(is);
+	      ibuf[is*stublen+2]=stub_module->at(is);
+	      ibuf[is*stublen+3]=stub_ladder->at(is);
+	      ibuf[is*stublen+4]=stub_segment->at(is);
+	      ibuf[is*stublen+5]=stub_strip->at(is);
+	      vbuf[is*stublen+6]=stub_x->at(is);
+	      vbuf[is*stublen+7]=stub_y->at(is);
+	      vbuf[is*stublen+8]=stub_z->at(is);
+	      size+=stublen*sizeof(int32_t);
+	    }
+	  printf("Evt %d got %d stubs gives %d bytes \n",evt,n_stub_total,size);
+	  std::stringstream sn;
+	  sn<<"Event_"<<evt;
+	  Raw_proxy.Write(sn.str(),buf,size);
+	}
+      else // Read Patterns stubs 
+	{
+	  for (uint16_t ise=0;ise<56;ise++)
 	    {
 
-	      int isect=patt_sec->at(k);
-	      if (isect!=ise) continue;
-	      for (int kk=0;kk<patt_stubs->at(k).size();++kk)
+	      int idx_s;
+	      int idx_p;
+	      theStubMap_.clear();
+
+      
+	      for (int k=0;k<n_patt;++k)
 		{
-		  idx_s = patt_stubs->at(k).at(kk);
-		  idx_p = stub_tp->at(idx_s);
-		  uint32_t hitIndex=idx_s;
-	      
-		  //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
-		  std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
-		  if (is==theStubMap_.end())
+
+		  int isect=patt_sec->at(k);
+		  if (isect!=ise) continue;
+		  for (int kk=0;kk<patt_stubs->at(k).size();++kk)
 		    {
-		      stub_t s;
-		      s.id=idx_s;
-		      s.x=stub_x->at(hitIndex);
-		      s.y=stub_y->at(hitIndex);
-		      s.z=stub_z->at(hitIndex);
-		      s.r2=s.x*s.x+s.y*s.y;;
-		      s.r=sqrt(s.r2);
-		      s.xp=s.x/s.r2;
-		      s.yp=s.y/s.r2;
-		      s.tp=stub_tp->at(hitIndex);
-		      s.layer =stub_layer->at(hitIndex);
-		      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
-		      std::pair<uint32_t,stub_t> p(idx_s,s);
-		      theStubMap_.insert(p);
+		      idx_s = patt_stubs->at(k).at(kk);
+		      idx_p = stub_tp->at(idx_s);
+		      uint32_t hitIndex=idx_s;
+	      
+		      //uint32_t sid=STUBID(stub_layer[hitIndex],stub_ladder[hitIndex],stub_z[hitIndex],stub_segment[hitIndex],stub_strip[hitIndex]);
+		      std::map<uint32_t,stub_t>::iterator is=theStubMap_.find(idx_s);
+		      if (is==theStubMap_.end())
+			{
+			  stub_t s;
+			  s.id=idx_s;
+			  s.x=stub_x->at(hitIndex);
+			  s.y=stub_y->at(hitIndex);
+			  s.z=stub_z->at(hitIndex);
+			  s.r2=s.x*s.x+s.y*s.y;;
+			  s.r=sqrt(s.r2);
+			  s.xp=s.x/s.r2;
+			  s.yp=s.y/s.r2;
+			  s.tp=stub_tp->at(hitIndex);
+			  s.layer =stub_layer->at(hitIndex);
+			  //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
+			  std::pair<uint32_t,stub_t> p(idx_s,s);
+			  theStubMap_.insert(p);
+			}
 		    }
-		}
 	    
 
-	    }
+		}
       
 
 
 
 
     
-	  uint32_t size_buf=0,ns=0;
-	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
-	    {
+	      uint32_t size_buf=0,ns=0;
+	      for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
+		{
 
-	      ibuf[ns*stublen+0]=is->second.layer&0xFF;
-	      ibuf[ns*stublen+1]=is->second.tp;
-	      vbuf[ns*stublen+2]=is->second.x;
-	      vbuf[ns*stublen+3]=is->second.y;
-	      vbuf[ns*stublen+4]=is->second.z;
-	      //printf("%d -> %d %d \n",ns,is->second.layer,ibuf[ns*stublen+0]);
-	      size_buf+=stublen*sizeof(uint32_t);
-	      ns++;
+		  ipbuf[ns*pstublen+0]=is->second.layer&0xFF;
+		  ipbuf[ns*pstublen+1]=is->second.tp;
+		  vpbuf[ns*pstublen+2]=is->second.x;
+		  vpbuf[ns*pstublen+3]=is->second.y;
+		  vpbuf[ns*pstublen+4]=is->second.z;
+		  //printf("%d -> %d %d \n",ns,is->second.layer,ibuf[ns*stublen+0]);
+		  size_buf+=pstublen*sizeof(uint32_t);
+		  ns++;
+		}
+	      std::stringstream s;
+	      s<<"Event_"<<evt<<"_"<<ise;
+	      p_proxy.Write(s.str(),pbuf,size_buf);
+	      printf("Evt %d_%d got %d stubs gives %d bytes \n",evt,ise,ns,size_buf);
+	      //getchar();
 	    }
-	  std::stringstream s;
-	  s<<"Event_"<<evt<<"_"<<ise;
-	  proxy.Write(s.str(),buf,size_buf);
-	  printf("Evt %d_%d got %d stubs gives %d bytes \n",evt,ise,ns,size_buf);
-	  //getchar();
-	}
-	
+	}	
 
     }
+    
 
 
 }
@@ -4903,8 +4949,9 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
 	  h_x[i]=vbuf[i*stublen+2];
 	  h_y[i]=vbuf[i*stublen+3];
 	  h_z[i]=vbuf[i*stublen+4];
-	  //printf("%d -> %d %f %f %f \n",i,h_layer[i],h_x[i],h_y[i],h_z[i]);
+	  //printf("%d -> %d %f %f %f %d \n",i,h_layer[i],h_x[i],h_y[i],h_z[i],ibuf[i*stublen+4]);
 	}
+      //getchar();
       ch.ComputeOneShot(isel,ns,h_x,h_y,h_z,h_layer);
       std::vector<mctrack_t> &v=ch.getCandidates();
       //
@@ -4916,7 +4963,7 @@ void GenericAnalysis::MemoryLoopTest(std::string directory,int32_t sector)
 	  size_buf_tk+=sizeof(mctrack_t);
 	}
       wproxy.Write((*ins),tkbuf,size_buf_tk);
-      //std::cout<<*ins<<" "<<ns<<" "<<size_buf_tk<<" found "<<v.size()<<" tracks "<<ntot<< std::endl;
+      std::cout<<*ins<<" "<<ns<<" "<<size_buf_tk<<" found "<<v.size()<<" tracks "<<ntot<< std::endl;
       //printf("%s %d  => %d %d \n",(*ins).c_str(),ns,v.size(),ntot);
       //      getchar();
     }
