@@ -428,6 +428,7 @@ void deleteHoughCPU(houghParam* p)
   free(p->h_cand);
   free(p->h_reg);
   free(p->h_temp);
+  free(p->h_val);
   free(p->d_val);
   free(p->d_x);
   free(p->d_y);
@@ -435,6 +436,7 @@ void deleteHoughCPU(houghParam* p)
   free(p->d_z);
   free(p->d_layer);
   free(p->d_hough_layer);
+  free(p->d_hough);
   free(p->d_cand);
   free(p->d_reg);
   free(p->d_temp);
