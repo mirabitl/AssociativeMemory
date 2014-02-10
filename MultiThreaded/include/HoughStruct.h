@@ -17,6 +17,8 @@ typedef struct {
   float pterr,phierr;
   float r,theta;
   uint16_t tag;
+  float chi2;
+  float chi2z;
 } mctrack_t;
 
 

@@ -57,7 +57,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
   int ntheta=160;
   int nrho=theCuts_->NRho;//8//12//192;
   //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
-  if (barrel || inter)
+  if (barrel || inter || endcap)
     {
       ntheta=theCuts_->NTheta;//64;
       if (isel%4==0) thmin=1.32;
@@ -78,7 +78,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
   fillConformalHoughCPU(&ph_,theX_,theY_,theZ_);
   fillLayerHoughCPU(&ph_,theLayer_);
 		  //clearHough(&ph);
-  processHoughCPU(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0);
+  processHoughCPU(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,endcap);
   //printf("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph_.h_cand[0],ph_.max_val,ph_.nstub);
   // Precise HT filling
   uint32_t nc=(int)ph_.h_cand[0];
@@ -130,7 +130,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
       
       initialiseHoughCPU(&phcand_[ic],theNStub_,nbinf,nbinr,tmi,tma,rmi,rma);	    
 
-      copyPositionHoughCPU(&ph_,pattern,&phcand_[ic],0,false);
+      copyPositionHoughCPU(&ph_,pattern,&phcand_[ic],0,false,endcap);
     }
 		  
 
@@ -142,7 +142,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
       if (phcand_[ic].h_reg[20]>0)
 	{
 	  phcand_[ic].nstub=int( phcand_[ic].h_reg[20]);
-	  processHoughCPU(&phcand_[ic],theCuts_->NStubHigh,theCuts_->NLayerHigh,0);
+	  processHoughCPU(&phcand_[ic],theCuts_->NStubHigh,theCuts_->NLayerHigh,0,endcap);
 	  
 	}
     }
@@ -166,7 +166,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
 	      mctrack_t t;
 	      // RZ  & R Phi regression
 	      initialiseHoughCPU(&phrcand_[ici],theNStub_,32,32,-PI/2,PI/2,-150.,150.);
-	      copyPositionHoughCPU(&phcand_[ic],patterni,&phrcand_[ici],1,true);
+	      copyPositionHoughCPU(&phcand_[ic],patterni,&phrcand_[ici],1,true,endcap);
 	      phrcand_[ici].nstub=int( phrcand_[ici].h_reg[20]);
 	      if (phrcand_[ici].h_reg[60+6]<1.7) continue;
 	      if ( phrcand_[ici].h_reg[20]<=0) continue;
@@ -243,7 +243,7 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
   int ntheta=160;
   int nrho=theCuts_->NRho;//8//12//192;
   //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
-  if (barrel || inter)
+  if (barrel || inter || endcap)
     {
       ntheta=theCuts_->NTheta;//64;
       if (isel%4==0) thmin=1.32;
@@ -258,12 +258,18 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
       ntheta*=2;
       nrho*=2;
     }
-  ntheta=960;
+ 
+   ntheta=960;
   nrho=156;
   if (inter)
     {
       ntheta=1056;
       nrho=88;
+    }
+  if (endcap)
+    {
+      ntheta=1056;
+      nrho=64;
     }
   theCuts_->NLayerRow=5;
 
@@ -272,7 +278,7 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
   fillConformalHoughCPU(&ph_,theX_,theY_,theZ_);
   fillLayerHoughCPU(&ph_,theLayer_);
 		  //clearHough(&ph);
-  processHoughCPU(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0);
+  processHoughCPU(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,endcap);
   //printf("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph_.h_cand[0],ph_.max_val,ph_.nstub);
   // Precise HT filling
   uint32_t nc=(int)ph_.h_cand[0];
@@ -298,7 +304,7 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
       mctrack_t t;
       // RZ  & R Phi regression
       initialiseHoughCPU(&phcand_[0],theNStub_,32,32,-PI/2,PI/2,-150.,150.);
-      copyPositionHoughCPU(&ph_,pattern,&phcand_[0],1,true);
+      copyPositionHoughCPU(&ph_,pattern,&phcand_[0],1,true,endcap);
       phcand_[0].nstub=int( phcand_[0].h_reg[20]);
       if (phcand_[0].h_reg[60+6]<1.7) continue;
       if ( phcand_[0].h_reg[20]<=0) continue;

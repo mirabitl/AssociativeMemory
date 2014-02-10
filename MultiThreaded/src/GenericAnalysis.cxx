@@ -57,6 +57,16 @@ bool mctsort(mctrack_t t1,mctrack_t t2)
   return false;
   
 }
+
+void  mctdist(mctrack_t t1,mctrack_t t2,float* dpt,float *dphi,float *dz, float* deta)
+{
+  *dpt=fabs(t1.pt-t2.pt);
+  *dphi=fabs(tan(t1.phi-t2.phi));
+  *dz=fabs(t1.z0-t2.z0);
+  *deta=fabs(t1.eta-t2.eta);
+}
+
+
 GenericAnalysis::GenericAnalysis() :thePtCut_(2.0),theNBinRho_(192),theNDelta_(1.5)
 {
   theHoughLow_ = new HOUGHLOCAL(-PI/2,0.,-0.01,0.01,8,8);
@@ -1094,7 +1104,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		  fillLayerHoughCPU(&ph,h_layer);
 		  //clearHough(&ph);
 #ifndef POINT2
-		  processHoughCPU(&ph,4,4,0);//processHough(&ph,3,3,0);
+		  processHoughCPU(&ph,4,4,0,endcap);//processHough(&ph,3,3,0);
 
 #else
 		  processHoughCPU(&ph,8,4,0);
@@ -1197,7 +1207,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 		      //do {
 			  initialiseHoughCPU(&phcand[ic],gpu_nstub,nbinf,nbinr,tmi,tma,rmi,rma);	    
 			  //clearHough(&phi);
-			  copyPositionHoughCPU(&ph,pattern,&phcand[ic],0,false);
+			  copyPositionHoughCPU(&ph,pattern,&phcand[ic],0,false,endcap);
 		    }
 		  
 
@@ -1212,7 +1222,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 			  //	  printf("Number of hits %d \n",phcand[ic].nstub);
 			  //dumpCPU(&phcand[ic]);
 			  //getchar();
-			  processHoughCPU(&phcand[ic],5,5,0);
+			  processHoughCPU(&phcand[ic],5,5,0,endcap);
 			  //drawph(&phcand[ic], theRootHandler_);
 			}
 		    }
@@ -1241,7 +1251,7 @@ void GenericAnalysis::FillMapSebastienNtuple(std::string fname)
 
 			      mctrack_t t;
 			      initialiseHoughCPU(&phrcand[ici],gpu_nstub,32,32,-PI/2,PI/2,-150.,150.);
-			      copyPositionHoughCPU(&phcand[ic],patterni,&phrcand[ici],1,true);
+			      copyPositionHoughCPU(&phcand[ic],patterni,&phrcand[ici],1,true,endcap);
 			      phrcand[ici].nstub=int( phrcand[ici].h_reg[20]);
 			      //dumpCPU(&phrcand[ici]);
 			      //getchar();
@@ -2569,6 +2579,27 @@ void GenericAnalysis::analyzePrecise()
       }
 
 }
+void GenericAnalysis::cleanDuplicate(std::vector <mctrack_t> vall)
+{
+  for (std::vector <mctrack_t>::iterator it=vall.begin();it<vall.end();it++)
+    {
+      bool found=false;
+      for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
+	{
+	  float dpt,dphi,dz,deta;
+	  mctdist((*it),(*ihbp),&dpt,&dphi,&dz,&deta);
+	  found= 
+	    (deta<0.02) &&
+	    (dphi<0.005) &&
+	    (dpt<0.1) &&
+	    (dz<0.3);
+	  if (found) break;
+	  
+	}
+      if (!found) theHoughCandidateVector_.push_back(*it);
+    }
+}
+
 
 void GenericAnalysis::alternativeAssociate()
 {
@@ -2580,14 +2611,37 @@ void GenericAnalysis::alternativeAssociate()
   theAssociatedTracks_.clear();
   theFakeTracks_.clear();
   uint32_t nc=0;
+  TH2F* g_hough=new TH2F("xy","xy",200,0,50.,100,M_PI,2*M_PI);
+  TH1F* h_chi2 = (TH1F*) theRootHandler_->GetTH1("chi2");
+  TH1F* h_chi2p = (TH1F*) theRootHandler_->GetTH1("chi2p");
+  TH1F* h_chi2z = (TH1F*) theRootHandler_->GetTH1("chi2z");
+  TH2F* h_chi22 = (TH2F*) theRootHandler_->GetTH2("chi22");
+  if (h_chi2==NULL)
+    {
+      h_chi2=(TH1F*)theRootHandler_->BookTH1("chi2",200,0.,20.);
+      h_chi2p=(TH1F*)theRootHandler_->BookTH1("chi2p",200,0.,500.);
+      h_chi2z=(TH1F*)theRootHandler_->BookTH1("chi2z",200,0.,100.);
+      h_chi22=(TH2F*)theRootHandler_->BookTH2("chi22",200,0.,100.,200,0.,100.);
+    }
   for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
     {
       (*ihbp).tag=1;
       double pth=(*ihbp).pt;
       double phih=(*ihbp).phi;
       nc++;
-      INFO_PRINT("Sector: %d found %d Candiddate Hough Track %f %f %d \n",theSector_,nc,pth,phih,(*ihbp).nhits);
-      
+      //WARN_PRINT("Sector: %d found %d Candiddate Hough Track %f %f %d  %f %f X2 %g %g\n",theSector_,nc,pth,phih,(*ihbp).nhits,ihbp->eta,ihbp->z0,ihbp->chi2,ihbp->chi2z);
+      float cx=ihbp->chi2,cz=ihbp->chi2z;
+      h_chi2->Fill(cx);
+      h_chi2z->Fill(cz);
+      h_chi2p->Fill(cx*cz);
+      //if (cx>1) continue;
+      //if (cz>30) continue;
+      //if (cz+100/100.*cx-400>0) continue;
+      //if (cz*cx>75) continue;
+      h_chi22->Fill(ihbp->chi2,ihbp->chi2z);
+      //if ((*ihbp).chi2z>20 && (*ihbp).chi2>25) continue;
+
+      g_hough->Fill(pth*1.,phih*1.);
       //if (pth<thePtCut_*0.9) continue;
       
       double dphmin=9999.;double dptmin=9999.,errmin=9999.;
@@ -2676,7 +2730,7 @@ void GenericAnalysis::alternativeAssociate()
 	    continue;}
 	  double err_ass=9999.;
 	  bool found=false;
-	  //  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
+	  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
 	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
 	    {
 	      double dph=tan(tk.phi-(*ia).phi);						
@@ -2736,6 +2790,25 @@ void GenericAnalysis::alternativeAssociate()
   sectmap_[theSector_].missed+=nmiss_;
   sectmap_[theSector_].fake+=nfake_;
   sectmap_[theSector_].rec+=nc;
+  /* 
+  if (CanvasGPU==NULL)
+    {
+      CanvasGPU=new TCanvas("CanvasGPU","hough",800,900);
+      CanvasGPU->Modified();
+      CanvasGPU->Draw();
+    }
+  CanvasGPU->cd();
+  g_hough->Draw("COLZ");
+  CanvasGPU->Modified();
+  CanvasGPU->Draw();
+  CanvasGPU->WaitPrimitive();
+  
+  CanvasGPU->Update();
+  //CanvasGPU->WaitPrimitive();
+  //char c;c=getchar();putchar(c); if (c=='.') exit(0);
+  */
+  delete g_hough;
+
 }
 void GenericAnalysis::PrintSectorMap()
 {
@@ -4293,14 +4366,18 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      h_x[gpu_nstub]=s.x;
 			      h_y[gpu_nstub]=s.y;
 			      h_z[gpu_nstub]=s.z;
-			      h_layer[gpu_nstub]=s.layer;
+			      uint16_t zinfo=0;
+			      if (s.layer<=7) zinfo=1;
+			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
+				zinfo=2;
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
 			      gpu_nstub++;
 #undef POINT2
 #ifdef POINT2
 			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
 			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
 			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
-			      h_layer[gpu_nstub]=s.layer;
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);;
 			      gpu_nstub++;
 #endif
 			    }
@@ -4386,6 +4463,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      s.xp=s.x/s.r2;
 			      s.yp=s.y/s.r2;
 			      s.tp=stub_tp->at(hitIndex);
+			      
 			      s.layer =stub_layer->at(hitIndex);
 			      //	DEBUG_PRINT(logFile_,"%d %d %f \n",theStubMap_.count(sid),hit_tp[hitIndex],hit_ptGEN[hitIndex]);
 			      std::pair<uint32_t,stub_t> p(idx_s,s);
@@ -4393,13 +4471,18 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      h_x[gpu_nstub]=s.x;
 			      h_y[gpu_nstub]=s.y;
 			      h_z[gpu_nstub]=s.z;
-			      h_layer[gpu_nstub]=s.layer;
+			      
+			      uint16_t zinfo=0;
+			      if (s.layer<=7) zinfo=1;
+			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
+				zinfo=2;
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
 			      gpu_nstub++;
 #ifdef POINT2
 			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
 			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
 			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
-			      h_layer[gpu_nstub]=s.layer;
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
 			      gpu_nstub++;
 #endif
 
@@ -4494,8 +4577,8 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
 	      if (gpu_nstub<1024 &&gpu_nstub>4) 
 		{
-
-		  //		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  
+		  //ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
 		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
@@ -4520,14 +4603,15 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
 
 		  std::vector<mctrack_t> &v=ch.getCandidates();
-		  for (std::vector<mctrack_t>::iterator it=v.begin();it!=v.end();it++)
+		  /*		  for (std::vector<mctrack_t>::iterator it=v.begin();it!=v.end();it++)
 		    theHoughCandidateVector_.push_back((*it));
-
+		  */
+		  cleanDuplicate(v);
 		  ntot+=v.size();
 
 
 		  
-		  printf("%d %d %d => %d %d \n",evt,isel,gpu_nstub,v.size(),ntot);
+		  //printf("%d %d %d => %d %d \n",evt,isel,gpu_nstub,v.size(),ntot);
 		  
 		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
 

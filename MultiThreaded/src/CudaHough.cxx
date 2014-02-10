@@ -2,6 +2,7 @@
 #include <stdio.h> 
 #include "CudaHough.h"
 #include <math.h>
+#include <iostream>
 CudaHough::CudaHough(HoughCut* cuts) :theCuts_(cuts)
 {
   theNStub_=0;
@@ -58,9 +59,10 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
   int ntheta=160;
   int nrho=theCuts_->NRho;//8//12//192;
   //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
-  if (barrel || inter)
+  if (barrel || inter || endcap)
     {
       ntheta=theCuts_->NTheta;//64;
+      
       if (isel%4==0) thmin=1.32;
       if (isel%4==1) thmin=-1.04;
       if (isel%4==2) thmin=-0.24;
@@ -79,7 +81,8 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
   fillConformalHough(&ph_,theX_,theY_,theZ_);
   fillLayerHough(&ph_,theLayer_);
 		  //clearHough(&ph);
-  processHough(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,-1);
+  //  std::cout<<endcap<<std::endl;
+  processHough(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,-1,endcap);
   //printf("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph_.h_cand[0],ph_.max_val,ph_.nstub);
   // Precise HT filling
   uint32_t nc=(int)ph_.h_cand[0];
@@ -123,6 +126,11 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
       else
 	if (endcap)
 	  ndel=theCuts_->NDelEndcap;
+
+
+        
+
+
       float tmi=GET_THETA_VALUE(ph_,ith)-ndel*ph_.thetabin;
       
       float tma=GET_THETA_VALUE(ph_,ith)+ndel*ph_.thetabin;
@@ -130,8 +138,8 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
       float rma=GET_R_VALUE(ph_,ir)+ndel*ph_.rbin;
       
       initialiseHough(&phcand_[ic],theNStub_,nbinf,nbinr,tmi,tma,rmi,rma);	    
-
-      copyPositionHough(&ph_,pattern,&phcand_[ic],0,false,ic);
+      //      std::cout<<endcap<<std::endl;
+      copyPositionHough(&ph_,pattern,&phcand_[ic],0,false,ic,endcap);
     }
 
   synchronize();
@@ -146,7 +154,8 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
       if (phcand_[ic].h_reg[20]>0)
 	{
 	  phcand_[ic].nstub=int( phcand_[ic].h_reg[20]);
-	  processHough(&phcand_[ic],theCuts_->NStubHigh,theCuts_->NLayerHigh,0,ic);
+	  //	  std::cout<<endcap<<std::endl;
+	  processHough(&phcand_[ic],theCuts_->NStubHigh,theCuts_->NLayerHigh,0,ic,endcap);
 	  
 	}
     }
@@ -171,7 +180,8 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
 	      mctrack_t t;
 	      // RZ  & R Phi regression
 	      initialiseHough(&phrcand_[ici],theNStub_,32,32,-PI/2,PI/2,-150.,150.);
-	      copyPositionHough(&phcand_[ic],patterni,&phrcand_[ici],1,true);
+	      //	      std::cout<<endcap<<std::endl;
+	      copyPositionHough(&phcand_[ic],patterni,&phrcand_[ici],1,true,-1,endcap);
 	      phrcand_[ici].nstub=int( phrcand_[ici].h_reg[20]);
 	      if (phrcand_[ici].h_reg[60+6]<1.7) continue;
 	      if ( phrcand_[ici].h_reg[20]<=0) continue;
@@ -179,7 +189,7 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
 	      if ( phrcand_[ici].h_reg[70+9]<1.5) continue; //at least 2 Z points
 	      t.z0=-phrcand_[ici].h_reg[70+1]/phrcand_[ici].h_reg[70+0];
 	      t.eta=phrcand_[ici].h_reg[70+8];
-	      if ( fabs(t.z0)>30.) continue;
+	      if ( fabs(t.z0)>30.) continue; //30 avant
 			  
 	      
 	      float theta=GET_THETA_VALUE(phcand_[ic],ithi);
@@ -205,7 +215,10 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
 	      t.pt=phrcand_[ici].h_reg[60+6];
 	      t.phi=phrcand_[ici].h_reg[60+2];
 	      t.nhits=(patterni>>20)&0x3FF;
-	      
+	      //	      std::cout<<endcap<<std::endl;
+	      getChi2(&phrcand_[ici],endcap);
+	      t.chi2=phrcand_[ici].h_reg[80];
+	      t.chi2z=phrcand_[ici].h_reg[81];
 	      theCandidateVector_.push_back(t);
 
 			      
@@ -249,7 +262,7 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
   int ntheta=160;
   int nrho=theCuts_->NRho;//8//12//192;
   //initialiseHough(&ph,gpu_nstub,ntheta,nrho,-PI/2,PI/2,-0.06,0.06);
-  if (barrel || inter)
+  if (barrel || inter || endcap )
     {
       ntheta=theCuts_->NTheta;//64;
       if (isel%4==0) thmin=1.32;
@@ -259,6 +272,7 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
       thmax=thmin+1.25;
     }
 
+  
   if (theNStub_>400)
     {
       ntheta*=2;
@@ -271,6 +285,11 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
       ntheta=1056;
       nrho=88;
     }
+  if (endcap)
+    {
+      ntheta=1056;
+      nrho=64;
+    }
   theCuts_->NLayerRow=5;
 
   initialiseHough(&ph_,theNStub_,ntheta,nrho,thmin,thmax,rhmin,rhmax);
@@ -278,7 +297,7 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
   fillConformalHough(&ph_,theX_,theY_,theZ_);
   fillLayerHough(&ph_,theLayer_);
 		  //clearHough(&ph);
-  processHough(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,-1);
+  processHough(&ph_,theCuts_->NStubLow,theCuts_->NLayerRow,0,-1,endcap);
   //printf("SECTOR %d gives %d candidates Max val %d STubs %d\n",isel,ph_.h_cand[0],ph_.max_val,ph_.nstub);
   // Precise HT filling
   uint32_t nc=(int)ph_.h_cand[0];
@@ -304,7 +323,7 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
       mctrack_t t;
       // RZ  & R Phi regression
       initialiseHough(&phcand_[0],theNStub_,32,32,-PI/2,PI/2,-150.,150.);
-      copyPositionHough(&ph_,pattern,&phcand_[0],1,true);
+      copyPositionHough(&ph_,pattern,&phcand_[0],1,true,-1,endcap);
       phcand_[0].nstub=int( phcand_[0].h_reg[20]);
       if (phcand_[0].h_reg[60+6]<1.7) continue;
       if ( phcand_[0].h_reg[20]<=0) continue;
@@ -338,7 +357,10 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
       t.pt=phcand_[0].h_reg[60+6];
       t.phi=phcand_[0].h_reg[60+2];
       t.nhits=(pattern>>20)&0x3FF;
-      
+      getChi2(&phcand_[0],endcap);
+      t.chi2=phcand_[0].h_reg[80];
+      t.chi2z=phcand_[0].h_reg[81];
+
       theCandidateVector_.push_back(t);
       
       

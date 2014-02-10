@@ -78,7 +78,7 @@ checkLayerKernel(unsigned int *d_layer,unsigned int* d_pattern)
   const unsigned int istub=threadIdx.x;
   sdata[0]=0;
   __syncthreads();
-  sdata[0] |=(1<<d_layer[istub]);
+  sdata[0] |=(1<<(d_layer[istub]&0xFFFF));
   __syncthreads();
   d_pattern[0]=sdata[0];
 }
@@ -168,7 +168,9 @@ doRegressionKernel(float *d_x, float *d_y,unsigned int* d_layer,unsigned int mod
     fdata[iw]=0;
   __syncthreads();
 
-  unsigned int l=d_layer[id];
+  unsigned int la=d_layer[id];
+  unsigned int l=d_layer[id]&0xFFFF;
+  unsigned int zinfo=(d_layer[id]>>16)&0xFFFF;
   if ((mode==1 && (l==5||l==6||l==7)) || mode==0)
     //  if ((1>0))
     { 
@@ -318,7 +320,7 @@ fillHoughKernel(short *d_val,unsigned int* d_layer,unsigned int* d_hough,unsigne
   if (ir>=0)
     {
       atomicAdd(&d_hough[ith*nbinrho+ir],1);
-      atomicOr(&d_hough_layer[ith*nbinrho+ir],(1<<d_layer[is]));
+      atomicOr(&d_hough_layer[ith*nbinrho+ir],(1<<(d_layer[is]&0xFFFF)));
 #ifdef OLDMAP
       int iwm=is/32;
       int ibm=is%32;
@@ -413,7 +415,7 @@ summaryHoughKernel(unsigned int* d_hough,float* d_param)
 
 
 __global__ void
-ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned int min_val,unsigned int min_layer,unsigned int* d_cand,houghLimits hl)
+ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned int min_val,unsigned int min_layer,unsigned int* d_cand,houghLimits hl,bool endcap)
 {
   const unsigned int nbinrho=hl.nrho;//int(limits[5]);
   const unsigned int nbintheta=hl.ntheta;//int(limits[4]);
@@ -478,10 +480,8 @@ ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned 
 	      l[ip]=((pattern &(1<<ip))!=0);
 	      if (l[ip]) np++;
 	    }
-	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7]);
-#ifdef ENDCAP
-	  bar56=l[5]; //ENDCAP
-#endif
+	  bool bar56=endcap || (l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7]);
+	  if (endcap)  bar56=l[5];
 	  // bar56=true;
 	  //np=10;
 	  if (np>=min_layer && d_hough[ith*nbinrho+ir]>=min_val && bar56)
@@ -553,9 +553,34 @@ copyNeighbourKernel(unsigned int ith,unsigned int ir,unsigned int ntheta,unsigne
   __syncthreads();
     }
 }
-
 __global__ void
-copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short* d_val,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,unsigned int* d_temp)
+computeChi2Kernel(float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_reg,bool endcap)
+{
+  const unsigned int is=threadIdx.x+1024*blockIdx.x;
+  const double ap=d_reg[60],bp=d_reg[61],ar=d_reg[70],br=d_reg[71];
+  if (is==0)
+    {
+      d_reg[80]=0;
+      d_reg[81]=0;
+    }
+  __syncthreads();
+  // R Phi chi2
+  double delx=d_yi[is]-ap*d_xi[is]-bp;
+  double del2=delx*delx*1E8;
+  atomicAdd(&d_reg[80],del2);
+  // R z
+  unsigned int l=(di_layer[is]&0xFFFF);
+  unsigned int zinfo=((di_layer[is]>>16)&0xFFFF);
+  //  if (endcap || (l==5) || (l==6) || (l==7)) 
+  if (zinfo!=0)
+    {
+	double delr=d_ri[is]-ar*d_zi[is]-br;
+	double delr2=delr*delr;
+	atomicAdd(&d_reg[81],delr2);
+      }
+}
+__global__ void
+copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short* d_val,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,unsigned int* d_temp,bool endcap)
 {
   const unsigned int ib=threadIdx.x;
 
@@ -573,12 +598,14 @@ copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short*
       if (id<GPU_MAX_STUB)
 	{
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
-	  unsigned int l=di_layer[ib]; 
+	  unsigned int la=di_layer[ib]; 
+	  unsigned int l=(di_layer[ib]&0xFFFF); 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
 	  d_zo[id]=z;
-	  do_layer[id]=l;
+	  do_layer[id]=la;
 	  if (regression)
 	    {
 	      atomicAdd(&d_reg[50],x);
@@ -586,11 +613,8 @@ copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short*
 	      atomicAdd(&d_reg[52],x*y);
 	      atomicAdd(&d_reg[53],y);
 	      atomicAdd(&d_reg[54],1.);
-#ifndef ENDCAP	      
-	      if ((l==5) || (l==6) || (l==7)) 
-#else
-		if (true)
-#endif
+	      //if ((l==5) || (l==6) || (l==7) || endcap) 
+	      if (zinfo!=0)
 		{
 		  atomicAdd(&d_reg[55],z);
 		  atomicAdd(&d_reg[56],z*z);
@@ -648,12 +672,16 @@ copyPositionKernel(unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_
       if (id<512)
 	{
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
-	  unsigned int l=di_layer[ib]; 
+	  //unsigned int l=di_layer[ib];
+	  unsigned int la=di_layer[ib]; 
+	  unsigned int l=(di_layer[ib]&0xFFFF); 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
+ 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
 	  d_zo[id]=z;
-	  do_layer[id]=l;
+	  do_layer[id]=la;
 	  if (regression)
 	    {
 	      atomicAdd(&d_reg[50],x);
@@ -661,7 +689,8 @@ copyPositionKernel(unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_
 	      atomicAdd(&d_reg[52],x*y);
 	      atomicAdd(&d_reg[53],y);
 	      atomicAdd(&d_reg[54],1.);
-	      if ((l==5) || (l==6) || (l==7))
+	      //if ((l==5) || (l==6) || (l==7))
+	      if (zinfo!=0)
 		{
 		  atomicAdd(&d_reg[55],z);
 		  atomicAdd(&d_reg[56],z*z);
@@ -877,7 +906,7 @@ void dump(houghParam* p)
   printf("\n");
 
   for (int i=0;i<p->nstub;i++)
-    printf("\t %d: (%f,%f,%f) r %f Layer %d \n",i,x[i],y[i],z[i],r[i],layer[i]);
+    printf("\t %d: (%f,%f,%f) r %f Layer %x \n",i,x[i],y[i],z[i],r[i],layer[i]);
 }
 
 void doRegression(houghParam* p,unsigned int mode )
@@ -896,7 +925,8 @@ void synchronize()
      cudaDeviceSynchronize();
      
 }
-void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression,int streamid)
+
+void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression,int streamid,bool endcap)
 {
   cudaStream_t stream=0;
   if (streamid>=0) stream=streams[streamid]; 
@@ -948,54 +978,55 @@ void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode
    //printf("Stream %d %x \n",streamid,(unsigned long) stream);
    clearFloatKernel<<<1,GPU_MAX_REG,0,stream>>>(po->d_reg);
    clearUIKernel<<<1,512,0,stream>>>(po->d_temp);
+   //   printf("copy %d \n",endcap);
 
    if (mode == 1)
      {
-       copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
      }
    else
      {
-       copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ith>0)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ith<pi->ntheta-1)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ith>0 && ir>0)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ir>0)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ir>0 && ith<pi->ntheta-1)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ith>0 && ir<pi->nrho-1)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith-1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ir<pi->nrho-1)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
        if (ir<pi->nrho-1 &&  ith<pi->ntheta-1)
-	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValKernel<<<1,pi->nstub,0,stream>>>(ith+1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        if (streamid<0) cudaDeviceSynchronize();
 
 
@@ -1050,9 +1081,20 @@ void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode
    free(hy);
    */
 }
-
-void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode,int streamid)
+void getChi2(houghParam* p,bool endcap)
 {
+  //  printf("getchi2 %d \n",endcap);
+  dim3  grid1(p->nstub/1024+1,1, 1);
+  dim3  threads1(min(p->nstub,1024), 1, 1);
+  computeChi2Kernel<<< grid1,threads1,0>>>(p->d_x,p->d_y,p->d_layer,p->d_r,p->d_z,p->d_reg,endcap);
+  getLastCudaError("Kernel execution failed");
+  cudaDeviceSynchronize();
+  checkCudaErrors(cudaMemcpyAsync(p->h_reg,p->d_reg,GPU_MAX_REG*sizeof(float),cudaMemcpyDeviceToHost,0));
+
+}
+void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode,int streamid,bool endcap)
+{
+  //  printf("processHough %d \n",endcap);
   cudaStream_t stream=0;
   if (streamid>=0) stream=streams[streamid]; 
   /****
@@ -1115,7 +1157,7 @@ void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsi
   //if (threshold<int(floor(p->max_val*0.5))) threshold=int(floor(p->max_val*0.5));
   //threshold=int(floor(m+3*rms));
    //printf("Max val %d Threshold %d \n",p->max_val,threshold);
-  ListHoughPointKernel<<< grid2,threads1,0,stream>>>(p->d_hough,p->d_hough_layer,threshold,min_layer,p->d_cand,hl);
+  ListHoughPointKernel<<< grid2,threads1,0,stream>>>(p->d_hough,p->d_hough_layer,threshold,min_layer,p->d_cand,hl,endcap);
   getLastCudaError("ListHoughPointKernel Kernel execution failed");
   if (streamid<0) cudaDeviceSynchronize();
 

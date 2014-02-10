@@ -72,7 +72,7 @@ for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx
   if (ir>=0)
     {
       d_hough[ith*nbinrho+ir]+=1;
-      d_hough_layer[ith*nbinrho+ir]|=(1<<d_layer[is]);
+      d_hough_layer[ith*nbinrho+ir]|=(1<<(d_layer[is]&0xFFFF));
     }
     }}
 
@@ -157,11 +157,12 @@ for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx
 
 
 
-void ListHoughPointCPU(int maxblock,int maxthread,unsigned int* d_hough,unsigned int* d_hough_layer,unsigned int min_val,unsigned int min_layer,unsigned int* d_cand,houghLimits hl)
+void ListHoughPointCPU(int maxblock,int maxthread,unsigned int* d_hough,unsigned int* d_hough_layer,unsigned int min_val,unsigned int min_layer,unsigned int* d_cand,houghLimits hl,bool endcap)
 {
+
   const unsigned int nbinrho=hl.nrho;//int(limits[5]);
   const unsigned int nbintheta=hl.ntheta;//int(limits[4]);
-
+  
 
   int pointerIndex=0;
 
@@ -206,7 +207,7 @@ for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx
 	      l[ip]=((pattern &(1<<ip))!=0);
 	      if (l[ip]) np++;
 	    }
-	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7]);
+	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7] || endcap);
 	  // bar56=true;
 	  //np=10;
 	  if (np>=min_layer && d_hough[ith*nbinrho+ir]>=min_val && bar56)
@@ -243,7 +244,7 @@ void conformalPositionCPU(int maxblock,int maxthread,float* d_xo,float* d_yo,flo
      }}
 }
 
-void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,unsigned int nbintheta,short* d_val,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,unsigned int* d_temp)
+void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,unsigned int nbintheta,short* d_val,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,unsigned int* d_temp,bool endcap)
 {
 
 
@@ -266,12 +267,14 @@ void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,
       if (id<GPU_MAX_STUB)
 	{
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
-	  unsigned int l=di_layer[ib]; 
+	  unsigned int la=di_layer[ib]; 
+	  unsigned int l=di_layer[ib]&0xFFFF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
 	  d_zo[id]=z;
-	  do_layer[id]=l;
+	  do_layer[id]=la;
 	  if (regression)
 	    {
 	      d_reg[50]+=x;
@@ -279,7 +282,8 @@ void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,
 	      d_reg[52]+=x*y;
 	      d_reg[53]+=y;
 	      d_reg[54]+=1.;
-	      if ((l==5) || (l==6) || (l==7))
+	      //if ((l==5) || (l==6) || (l==7) || endcap)
+	      if (zinfo!=0)
 		{
 		  d_reg[55]+=z;
 		  d_reg[56]+=z*z;
@@ -320,12 +324,13 @@ clearUICPU(int maxblock,int maxthread,unsigned int* d_float)
 
 }
 
- void copyPositionCPU(int maxblock,int maxthread,unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression)
+void copyPositionCPU(int maxblock,int maxthread,unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,float* d_zi,float* d_xo,float* d_yo,unsigned int* do_layer,float* d_ro,float* d_zo,float* d_reg,bool regression,bool endcap)
 {
 
   int pointerIndex=0;
   for (int i=50;i<60;i++)
     d_reg[i]=0;
+
 
 
   for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx++) {{ //STARTOFLOOP
@@ -341,12 +346,14 @@ clearUICPU(int maxblock,int maxthread,unsigned int* d_float)
       if (id<512)
 	{
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
-	  unsigned int l=di_layer[ib]; 
+	  unsigned int la=di_layer[ib]; 
+	  unsigned int l=di_layer[ib]&0xFFFF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
 	  d_zo[id]=z;
-	  do_layer[id]=l;
+	  do_layer[id]=la;
 	  if (regression)
 	    {
 	      d_reg[50]+=x;
@@ -354,7 +361,8 @@ clearUICPU(int maxblock,int maxthread,unsigned int* d_float)
 	      d_reg[52]+=x*y;
 	      d_reg[53]+=y;
 	      d_reg[54]+=1.;
-	      if ((l==5) || (l==6) || (l==7))
+	      //if ((l==5) || (l==6) || (l==7) || endcap)
+		if (zinfo!=0)
 		{
 		  d_reg[55]+=z;
 		  d_reg[56]+=z*z;
@@ -501,10 +509,10 @@ void dumpCPU(houghParam* p)
   printf("\n");
 
   for (int i=0;i<p->nstub;i++)
-    printf("\t %d: (%f,%f,%f) r %f Layer %d \n",i,p->d_x[i],p->d_y[i],p->d_z[i],p->d_r[i],p->d_layer[i]);
+    printf("\t %d: (%f,%f,%f) r %f Layer %x \n",i,p->d_x[i],p->d_y[i],p->d_z[i],p->d_r[i],p->d_layer[i]);
 }
 
-void copyPositionHoughCPU(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression)
+void copyPositionHoughCPU(houghParam* pi,int icand,houghParam* po,unsigned int mode,bool regression,bool endcap)
 {
    int ith=icand&0X3FF;
    int ir=(icand>>10)&0x3FF;
@@ -515,49 +523,49 @@ void copyPositionHoughCPU(houghParam* pi,int icand,houghParam* po,unsigned int m
 
    if (mode == 1)
      {
-       copyFromValCPU(1,pi->nstub,ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       copyFromValCPU(1,pi->nstub,ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
      }
    else
      {
-       copyFromValCPU(1,pi->nstub,ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+       copyFromValCPU(1,pi->nstub,ith,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
 
        if (ith>0)
-	 copyFromValCPU(1,pi->nstub,ith-1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith-1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ith<pi->ntheta-1)
-	 copyFromValCPU(1,pi->nstub,ith+1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith+1,ir,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ith>0 && ir>0)
-	 copyFromValCPU(1,pi->nstub,ith-1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith-1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ir>0)
-	 copyFromValCPU(1,pi->nstub,ith,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ir>0 && ith<pi->ntheta-1)
-	 copyFromValCPU(1,pi->nstub,ith+1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith+1,ir-1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ith>0 && ir<pi->nrho-1)
-	 copyFromValCPU(1,pi->nstub,ith-1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith-1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ir<pi->nrho-1)
-	 copyFromValCPU(1,pi->nstub,ith,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
        if (ir<pi->nrho-1 &&  ith<pi->ntheta-1)
-	 copyFromValCPU(1,pi->nstub,ith+1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp);
+	 copyFromValCPU(1,pi->nstub,ith+1,ir+1,pi->ntheta,pi->d_val,pi->d_x,pi->d_y,pi->d_layer,pi->d_r,pi->d_z,po->d_x,po->d_y,po->d_layer,po->d_r,po->d_z,po->d_reg,regression,po->d_temp,endcap);
        
 
 
@@ -571,7 +579,7 @@ void copyPositionHoughCPU(houghParam* pi,int icand,houghParam* po,unsigned int m
 
  }
 
-void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode)
+void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsigned int mode,bool endcap)
 {
  houghLimits hl;
   hl.thetamin=p->thetamin;
@@ -611,7 +619,7 @@ void processHoughCPU(houghParam* p,unsigned int min_cut,unsigned int min_layer,u
   //if (threshold<int(floor(p->max_val*0.5))) threshold=int(floor(p->max_val*0.5));
   //threshold=int(floor(m+3*rms));
    //printf("Max val %d Threshold %d \n",p->max_val,threshold);
-  ListHoughPointCPU(grid2,threads1,p->d_hough,p->d_hough_layer,threshold,min_layer,p->d_cand,hl);
+  ListHoughPointCPU(grid2,threads1,p->d_hough,p->d_hough_layer,threshold,min_layer,p->d_cand,hl,endcap);
 
   memcpy(p->h_cand, p->d_cand, GPU_MAX_CAND*sizeof(unsigned int));
 

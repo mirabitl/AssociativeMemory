@@ -12,7 +12,7 @@
 #define HOUGHLOCAL HoughLocal1
 #include "HoughLocal1.h"
 #endif
-#undef INFO_PRINT_ENABLED 
+#define WARN_PRINT_ENABLED 
 #if DEBUG_PRINT_ENABLED
 #define INFO_PRINT_ENABLED 1
 #define DEBUG_PRINT fprintf
@@ -66,7 +66,7 @@ public:
   void analyzePrecise();
   void alternativeAssociate();
   void PrintSectorMap();
-
+  void cleanDuplicate(std::vector<mctrack_t> v);
 #if defined(USE_CUDA) || defined(USE_CPU)
   void drawph(houghParam* p,DCHistogramHandler* r);
 #endif
