@@ -207,7 +207,8 @@ for (int b_idx=0;b_idx<maxblock;b_idx++)  for (int t_idx=0;t_idx<maxthread;t_idx
 	      l[ip]=((pattern &(1<<ip))!=0);
 	      if (l[ip]) np++;
 	    }
-	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7] || endcap);
+	  bool bar56=(l[5]&&l[6])||(l[5]&&l[7])||(l[6]&&l[7]) || endcap;
+	  if (endcap) bar56=l[5];
 	  // bar56=true;
 	  //np=10;
 	  if (np>=min_layer && d_hough[ith*nbinrho+ir]>=min_val && bar56)

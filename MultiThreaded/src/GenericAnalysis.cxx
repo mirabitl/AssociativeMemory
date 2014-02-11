@@ -1755,7 +1755,7 @@ void GenericAnalysis::basicHistos(int32_t isel)
 	hphigood->Fill(im->second.phi);
 	if (im->second.matches) hphigoodfound->Fill(im->second.phi);
       }
-  for (std::vector<mctrack_t>::iterator it=theAssociatedTracks_.begin();it!=theAssociatedTracks_.end();it++)
+  for (std::list<mctrack_t>::iterator it=theAssociatedTracks_.begin();it!=theAssociatedTracks_.end();it++)
     {
       hr->Fill(it->r);
       hzt->Fill(it->z0);
@@ -1830,11 +1830,11 @@ void GenericAnalysis::basicHistos(int32_t isel)
 	if (im->second.matches) hphigoodfound->Fill(im->second.phi);
       }
 
-    for (std::vector<mctrack_t>::iterator it=theFakeTracks_.begin();it!=theFakeTracks_.end();it++)
+    for (std::list<mctrack_t>::iterator it=theFakeTracks_.begin();it!=theFakeTracks_.end();it++)
     {
       hnassf->Fill(it->matches*1.);
     }
-  for (std::vector<mctrack_t>::iterator it=theAssociatedTracks_.begin();it!=theAssociatedTracks_.end();it++)
+  for (std::list<mctrack_t>::iterator it=theAssociatedTracks_.begin();it!=theAssociatedTracks_.end();it++)
     {
       //hnassr->Fill(it->matches*1.);
       hr->Fill(it->r);
@@ -2046,9 +2046,9 @@ void GenericAnalysis::associate()
 	  mctrack_t& tk=(*ihbp);
 	  //DEBUG_PRINT(logFile_,"==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),theAssociatedTracks_.size());
 	  double err_ass=9999.;
-	  std::vector<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
+	  std::list<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
 	  bool found=false;
-	  for (std::vector <mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia<theAssociatedTracks_.end();)
+	  for (std::list<mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia!=theAssociatedTracks_.end();)
 	    {
 	      double dph=(ismin->second.phi-(*ia).phi);						
 	      double dpt=ismin->second.pt-(*ia).pt;
@@ -2064,7 +2064,7 @@ void GenericAnalysis::associate()
 	      else
 		{
 		  //DEBUG_PRINT(logFile_,"erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
-		  theAssociatedTracks_.erase(ia);
+		  ia=theAssociatedTracks_.erase(ia);
 		}
 	    }
 	  if (!found)
@@ -2084,7 +2084,7 @@ void GenericAnalysis::associate()
 	  mctrack_t& tk=(*ihbp);
 	  double err_ass=9999.;
 	  bool found=false;
-	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
+	  for (std::list <mctrack_t>::iterator ia=theFakeTracks_.begin();ia!=theFakeTracks_.end();ia++)
 	    {
 	      double dph=(tk.phi-(*ia).phi);						
 	      double dpt=tk.pt-(*ia).pt;
@@ -2108,9 +2108,9 @@ void GenericAnalysis::associate()
     }
 
   printf(" Number of Hough candidate %ld and good %ld  and fake %ld \n",theHoughCandidateVector_.size(),theAssociatedTracks_.size(),theFakeTracks_.size());
-  for (std::vector <mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp<theAssociatedTracks_.end();ihbp++)
+  for (std::list<mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp!=theAssociatedTracks_.end();ihbp++)
     printf("Valid Hough Track %f %f %d \n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).nhits);
-  for (std::vector <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp<theFakeTracks_.end();ihbp++)
+  for (std::list <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp!=theFakeTracks_.end();ihbp++)
     printf("-------------> Fake Hough Track %f %f %f %d \n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).rho0,(*ihbp).nhits);
   nfake_+=theFakeTracks_.size();
   for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
@@ -2675,9 +2675,9 @@ void GenericAnalysis::alternativeAssociate()
 	  mctrack_t& tk=(*ihbp);
 	  //DEBUG_PRINT(logFile_,"==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),theAssociatedTracks_.size());
 	  double err_ass=9999.;
-	  std::vector<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
+	  std::list<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
 	  bool found=false;
-	  for (std::vector <mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia<theAssociatedTracks_.end();)
+	  for (std::list <mctrack_t>::iterator ia=theAssociatedTracks_.begin();ia!=theAssociatedTracks_.end();)
 	    {
 	      double dph=tan(ismin->second.phi-(*ia).phi);						
 	      double dpt=(ismin->second.pt-(*ia).pt);
@@ -2701,7 +2701,7 @@ void GenericAnalysis::alternativeAssociate()
 	      else
 		{
 		  //DEBUG_PRINT(logFile_,"erasing %f %f => %f %f +++ %f %f \n",dph,dpt/(*ia).pt,ismin->second.pt,(*ia).pt,tan(ismin->second.phi),tan((*ia).phi));
-		  theAssociatedTracks_.erase(ia);
+		  ia=theAssociatedTracks_.erase(ia);
 		}
 	    }
 	  if (!found)
@@ -2731,7 +2731,7 @@ void GenericAnalysis::alternativeAssociate()
 	  double err_ass=9999.;
 	  bool found=false;
 	  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
-	  for (std::vector <mctrack_t>::iterator ia=theFakeTracks_.begin();ia<theFakeTracks_.end();ia++)
+	  for (std::list <mctrack_t>::iterator ia=theFakeTracks_.begin();ia!=theFakeTracks_.end();ia++)
 	    {
 	      double dph=tan(tk.phi-(*ia).phi);						
 	      double dpt=(tk.pt-(*ia).pt)/tk.pt;
@@ -2765,9 +2765,9 @@ void GenericAnalysis::alternativeAssociate()
     }
 
   INFO_PRINT(" Number of Hough candidate %ld and good %ld  and fake %ld \n",theHoughCandidateVector_.size(),theAssociatedTracks_.size(),theFakeTracks_.size());
-  for (std::vector <mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp<theAssociatedTracks_.end();ihbp++)
+  for (std::list<mctrack_t>::iterator ihbp=theAssociatedTracks_.begin();ihbp!=theAssociatedTracks_.end();ihbp++)
     INFO_PRINT("Valid Hough Track %f %f %d %f\n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).nhits,(*ihbp).rho0);
-  for (std::vector <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp<theFakeTracks_.end();ihbp++)
+  for (std::list <mctrack_t>::iterator ihbp=theFakeTracks_.begin();ihbp!=theFakeTracks_.end();ihbp++)
     INFO_PRINT("-------------> Fake Hough Track %f %f %f %f %d\n",(*ihbp).pt,tan((*ihbp).phi),(*ihbp).phi,(*ihbp).rho0,(*ihbp).nhits);
   nfake_=theFakeTracks_.size();
   for (std::map<int32_t,mctrack_t>::iterator im=theMCMap_.begin();im!=theMCMap_.end();im++)
@@ -4578,9 +4578,9 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 	      if (gpu_nstub<1024 &&gpu_nstub>4) 
 		{
 		  
-		  //ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
-		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  //ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
 		  // uint32_t size_buf=0,ns=0;
 	      // 	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)

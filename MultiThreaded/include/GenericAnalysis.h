@@ -4,6 +4,7 @@
 #include "HoughStruct.h"
 #include <map>
 #include <vector>
+#include <list>
 #undef USE_HV
 #ifndef USE_HV
 #define HOUGHLOCAL HoughLocal
@@ -80,8 +81,8 @@ protected:
   std::map<int32_t,mctrack_t> theMCMap_;
   std::vector<pattern_t> thePatternVector_;
   std::vector<mctrack_t> theHoughCandidateVector_;
-  std::vector<mctrack_t> theAssociatedTracks_;
-  std::vector<mctrack_t> theFakeTracks_;
+  std::list<mctrack_t> theAssociatedTracks_;
+  std::list<mctrack_t> theFakeTracks_;
   
   DCHistogramHandler* theRootHandler_;
   HOUGHLOCAL* theHoughLow_;
