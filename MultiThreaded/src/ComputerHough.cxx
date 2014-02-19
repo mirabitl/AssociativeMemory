@@ -341,8 +341,8 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
       t.phi=phcand_[0].h_reg[60+2];
       t.nhits=(pattern>>20)&0x3FF;
       t.layers.clear();
-      for (int ist=0;ist<=phrcand_[0].nstub;ist++)
-	t.layers.push_back(phrcand_[0].d_layer[ist]);
+      for (int ist=0;ist<=phcand_[0].nstub;ist++)
+	t.layers.push_back(phcand_[0].d_layer[ist]);
       theCandidateVector_.push_back(t);
       
       
