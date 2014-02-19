@@ -201,7 +201,7 @@ void ComputerHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float
 	      t.phi=phrcand_[ici].h_reg[60+2];
 	      t.nhits=(patterni>>20)&0x3FF;
 	      t.layers.clear();
-	      for (int ist=0;ist<=phrcand_[ici].nstub;ist++)
+	      for (int ist=0;ist<phrcand_[ici].nstub;ist++)
 		t.layers.push_back(phrcand_[ici].d_layer[ist]);
 	      theCandidateVector_.push_back(t);
 
@@ -341,7 +341,7 @@ void ComputerHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* 
       t.phi=phcand_[0].h_reg[60+2];
       t.nhits=(pattern>>20)&0x3FF;
       t.layers.clear();
-      for (int ist=0;ist<=phcand_[0].nstub;ist++)
+      for (int ist=0;ist<phcand_[0].nstub;ist++)
 	t.layers.push_back(phcand_[0].d_layer[ist]);
       theCandidateVector_.push_back(t);
       
