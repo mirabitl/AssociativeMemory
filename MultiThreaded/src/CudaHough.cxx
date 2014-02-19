@@ -219,6 +219,14 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
 	      getChi2(&phrcand_[ici],endcap);
 	      t.chi2=phrcand_[ici].h_reg[80];
 	      t.chi2z=phrcand_[ici].h_reg[81];
+
+
+	      t.layers.clear();
+	      int layers[2048];
+	      copyLayers(&phrcand_[ici],layers);
+	      for (int ist=0;ist<=phrcand_[ici].nstub;ist++)
+		t.layers.push_back(layers[ist]);
+
 	      theCandidateVector_.push_back(t);
 
 			      
@@ -360,6 +368,11 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
       getChi2(&phcand_[0],endcap);
       t.chi2=phcand_[0].h_reg[80];
       t.chi2z=phcand_[0].h_reg[81];
+      t.layers.clear();
+      int layers[2048];
+      copyLayers(&phrcand_[0],layers);
+      for (int ist=0;ist<=phrcand_[0].nstub;ist++)
+	t.layers.push_back(layers[ist]);
 
       theCandidateVector_.push_back(t);
       

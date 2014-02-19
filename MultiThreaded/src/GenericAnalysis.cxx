@@ -2726,11 +2726,17 @@ void GenericAnalysis::alternativeAssociate()
 	  
 	  // Not found in MC tracks
 	  mctrack_t& tk=(*ihbp);
-	  if (tk.pt<thePtCut_) {//printf("Low Pt Fake %f \n",tk.pt);
+	  if (tk.pt<thePtCut_) {printf("Low Pt Fake %f \n",tk.pt);
 	    continue;}
 	  double err_ass=9999.;
-	  bool found=false;
+	  bool foundfake=false;
 	  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
+	  /* for (std::vector<uint32_t>::iterator itl=tk.layers.begin();itl!=tk.layers.end();itl++)
+	    {
+	      uint32_t ll=(*itl);
+	      printf("\t %d %x \n",(ll>>18)&0xFFF,ll);
+	    }
+	  */
 	  for (std::list <mctrack_t>::iterator ia=theFakeTracks_.begin();ia!=theFakeTracks_.end();ia++)
 	    {
 	      double dph=tan(tk.phi-(*ia).phi);						
@@ -2743,12 +2749,12 @@ void GenericAnalysis::alternativeAssociate()
 	      //  printf("%f %f \n",abs(dph),abs(dpt)/(*ia).pt);
 	      if (abs(dph)>phidev) {continue;}
 	      if (abs(dpt)>maxdev) {continue;}
-	      found=true;
+	      foundfake=true;
 	      (*ia).matches++;
 	      //printf("already associated \n");
 	      break;
 	    }
-	  if (!found)
+	  if (!foundfake)
 	    {
 	      //printf("Adding Fake \n");
 	      tk.matches=1;
@@ -4370,14 +4376,15 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      if (s.layer<=7) zinfo=1;
 			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
 				zinfo=2;
-			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
+
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16) | (gpu_nstub<<18);
 			      gpu_nstub++;
 #undef POINT2
 #ifdef POINT2
 			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
 			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
 			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
-			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);;
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16)| (gpu_nstub<<18);
 			      gpu_nstub++;
 #endif
 			    }
@@ -4476,13 +4483,13 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      if (s.layer<=7) zinfo=1;
 			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
 				zinfo=2;
-			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16)| (gpu_nstub<<18);
 			      gpu_nstub++;
 #ifdef POINT2
 			      h_x[gpu_nstub]=stub_x_2->at(hitIndex);
 			      h_y[gpu_nstub]=stub_y_2->at(hitIndex);
 			      h_z[gpu_nstub]=stub_z_2->at(hitIndex);
-			      h_layer[gpu_nstub]=s.layer | (zinfo<<16);
+			      h_layer[gpu_nstub]=s.layer | (zinfo<<16) | (gpu_nstub<<18);
 			      gpu_nstub++;
 #endif
 
@@ -4578,9 +4585,9 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 	      if (gpu_nstub<1024 &&gpu_nstub>4) 
 		{
 		  
-		  ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
-
-		  //ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  //ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  
+		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
 		  // uint32_t size_buf=0,ns=0;
 	      // 	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)

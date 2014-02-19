@@ -270,7 +270,7 @@ void copyFromValCPU(int maxblock,int maxthread,unsigned int ith,unsigned int ir,
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
 	  unsigned int la=di_layer[ib]; 
 	  unsigned int l=di_layer[ib]&0xFFFF; 
-	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xF; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
@@ -349,7 +349,7 @@ void copyPositionCPU(int maxblock,int maxthread,unsigned int* d_map,float* d_xi,
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
 	  unsigned int la=di_layer[ib]; 
 	  unsigned int l=di_layer[ib]&0xFFFF; 
-	  unsigned int zinfo=(di_layer[ib]>>16)&0xFFFF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0xF; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;

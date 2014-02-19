@@ -28,5 +28,6 @@ extern "C" void h_free(void* f);
 extern "C" void createStreams(unsigned int nb);
 extern "C" void deleteStreams(unsigned int nb);
 extern "C" void  synchronize();
+extern "C" void copyLayers(houghParam* p,int* layers);
 
 #endif

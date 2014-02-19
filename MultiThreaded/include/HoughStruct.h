@@ -1,6 +1,7 @@
 #ifndef HoughStruct_def_
 #define HoughStruct_def_
 #include <stdint.h>
+#include <vector>
 typedef struct {
   int32_t id;
   double phi;
@@ -19,6 +20,7 @@ typedef struct {
   uint16_t tag;
   float chi2;
   float chi2z;
+  std::vector<uint32_t> layers;
 } mctrack_t;
 
 
