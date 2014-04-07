@@ -3,6 +3,7 @@
 #include <bitset>
 #include <TROOT.h>
 #include <TApplication.h>
+
 #include <TChain.h>
 #include <TFile.h>
 #include <sstream>
@@ -33,7 +34,8 @@ int main(int argc, char* argv[])
   TApplication ta("THETEST",&argc,argv);
   GenericAnalysis a;
   //a.AddFile("/home/mirabito/AM_Data/PU2_612_SLHC6_MUBANK_lowmidhig_sec16_ss32_cov40_5on6.root",GenericAnalysis::GUILLAUME);
-  a.AddFile("/scratch/output_PU4T_32_1000_NEW.root",GenericAnalysis::SEBASTIEN);
+  //a.AddFile("/scratch/output_PU4T_32_1000_NEW.root",GenericAnalysis::SEBASTIEN);
+  a.AddFile("/home/mirabito/AssociativeMemory/output_PU4TC_32_1000_COMPLETE.root",GenericAnalysis::SEBASTIEN);
   //a.AddFile("/home/mirabito/AssociativeMemory/output_PU_32_1000_ALL.root",GenericAnalysis::SEBASTIEN);
   /*
     a.ReadRawL1TrackTrigger("/scratch/PU4T_01_light.root");
@@ -1718,6 +1720,7 @@ void GenericAnalysis::basicHistos(int32_t isel)
       TH1F* hdptrel=(TH1F*) theRootHandler_->GetTH1(s.str()+"dptrel");
       TH1F* hdphi=(TH1F*) theRootHandler_->GetTH1(s.str()+"dphi");
       TH1F* hdz=(TH1F*) theRootHandler_->GetTH1(s.str()+"dz");
+      TH1F* hdeta=(TH1F*) theRootHandler_->GetTH1(s.str()+"deta");
       TH1F* hzt=(TH1F*) theRootHandler_->GetTH1(s.str()+"zt");
       TH1F* hr=(TH1F*) theRootHandler_->GetTH1(s.str()+"r");
       TH1F* htheta=(TH1F*) theRootHandler_->GetTH1(s.str()+"theta");
@@ -1740,6 +1743,8 @@ void GenericAnalysis::basicHistos(int32_t isel)
 	  hdptrel=(TH1F*)theRootHandler_->BookTH1(s.str()+"dptrel",200,-0.5,0.5);
 	  hdphi=(TH1F*)theRootHandler_->BookTH1(s.str()+"dphi",200,-0.2,0.2);
 	  hdz=(TH1F*)theRootHandler_->BookTH1(s.str()+"dz",200,-2.,2.);
+	  hdeta=(TH1F*)theRootHandler_->BookTH1(s.str()+"deta",2000,-0.25,0.25);
+
 	  hzmc=(TH1F*)theRootHandler_->BookTH1(s.str()+"zmc",200,-100.,100.);
 	  hzt=(TH1F*)theRootHandler_->BookTH1(s.str()+"zt",200,-100.,100.);
 	  hdptnear_pth= (TH2F*) theRootHandler_->BookTH2(s.str()+"Dptnear_pth",50,0.,50.,100,-10.,10.);
@@ -1766,7 +1771,8 @@ void GenericAnalysis::basicHistos(int32_t isel)
       hdptrel->Fill((it->pt-theMCMap_[it->id_ass].pt)/it->pt);
       hdphi->Fill(it->phi-theMCMap_[it->id_ass].phi);
       hdz->Fill(it->z0-theMCMap_[it->id_ass].z0);
-    }
+      hdeta->Fill(it->eta-theMCMap_[it->id_ass].eta);
+    } 
 
     }
   else
@@ -1812,7 +1818,7 @@ void GenericAnalysis::basicHistos(int32_t isel)
 	  hnassf=(TH1F*)theRootHandler_->BookTH1("nassf",21,-0.1,20.9);
 	  hnassr=(TH1F*)theRootHandler_->BookTH1("nassr",21,-0.1,20.9);
 	  htag=(TH1F*)theRootHandler_->BookTH1("tag",21,-0.1,20.9);
-	  hdeta=(TH1F*)theRootHandler_->BookTH1("deta",200,-0.75,0.75);
+	  hdeta=(TH1F*)theRootHandler_->BookTH1("deta",200,-0.25,0.25);
 	  hzmc=(TH1F*)theRootHandler_->BookTH1("zmc",200,-100.,100.);
 	  hzt=(TH1F*)theRootHandler_->BookTH1("zt",200,-100.,100.);
 	  hdptnear_pth= (TH2F*) theRootHandler_->BookTH2("Dptnear_pth",50,0.,50.,100,-10.,10.);
@@ -2623,13 +2629,13 @@ void GenericAnalysis::alternativeAssociate()
       h_chi2z=(TH1F*)theRootHandler_->BookTH1("chi2z",200,0.,100.);
       h_chi22=(TH2F*)theRootHandler_->BookTH2("chi22",200,0.,100.,200,0.,100.);
     }
-  for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
+  for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp!=theHoughCandidateVector_.end();ihbp++)
     {
       (*ihbp).tag=1;
       double pth=(*ihbp).pt;
       double phih=(*ihbp).phi;
       nc++;
-      //WARN_PRINT("Sector: %d found %d Candiddate Hough Track %f %f %d  %f %f X2 %g %g\n",theSector_,nc,pth,phih,(*ihbp).nhits,ihbp->eta,ihbp->z0,ihbp->chi2,ihbp->chi2z);
+      DEBUG_PRINT("Sector: %d found %d Candiddate Hough Track %f %f %d  %f %f X2 %g %g\n",theSector_,nc,pth,phih,(*ihbp).nhits,ihbp->eta,ihbp->z0,ihbp->chi2,ihbp->chi2z);
       float cx=ihbp->chi2,cz=ihbp->chi2z;
       h_chi2->Fill(cx);
       h_chi2z->Fill(cz);
@@ -2652,14 +2658,15 @@ void GenericAnalysis::alternativeAssociate()
 	  double dph=tan(im->second.phi-phih);						
 	  double dpt=(im->second.pt-pth);
 	  double maxdev=PTERRCUT*pth;
-	  if ((*ihbp).pterr>maxdev) maxdev=(*ihbp).pterr;
+	  //if ((*ihbp).pterr>maxdev) maxdev=(*ihbp).pterr;
 	  double phidev=PHIERRCUT;
-	  if ((*ihbp).phierr>phidev) phidev=(*ihbp).phierr;
+	  //if ((*ihbp).phierr>phidev) phidev=(*ihbp).phierr;
 	  if (abs(dph)>phidev) continue;
 	  
 	  if (abs(dpt)>maxdev) continue;
 	  //if ((im->second.pt-pth)>(*ihbp).pterr) continue;
-	  if (abs(dpt)<errmin)
+	  //if (abs(dpt)<errmin)
+	  if (abs(dph)<dphmin)
 	    {
 	      dptmin=abs(dpt);
 	      dphmin=abs(dph);
@@ -2671,8 +2678,10 @@ void GenericAnalysis::alternativeAssociate()
 	}
       if (matched)
 	{
-
 	  mctrack_t& tk=(*ihbp);
+	  //printf("Studying associated Hough Track %f %f %d %d %f %f\n",tk.pt,tan(tk.phi),tk.nhits,theAssociatedTracks_.size(),dptmin,dphmin);
+
+	  
 	  //DEBUG_PRINT(logFile_,"==================> Studying %f %f %d \n",tk.pt,tan(tk.phi),theAssociatedTracks_.size());
 	  double err_ass=9999.;
 	  std::list<mctrack_t>::iterator isbest=theAssociatedTracks_.end();
@@ -2683,13 +2692,13 @@ void GenericAnalysis::alternativeAssociate()
 	      double dpt=(ismin->second.pt-(*ia).pt);
 
 	      double maxdev=PTERRCUT*(*ia).pt;
-	      if ((*ia).pterr>maxdev) maxdev=(*ia).pterr;
+	      //if ((*ia).pterr>maxdev) maxdev=(*ia).pterr;
 	      double phidev=PHIERRCUT;
-	      if ((*ia).phierr>phidev) phidev=(*ia).phierr;
+	      //if ((*ia).phierr>phidev) phidev=(*ia).phierr;
 
 	      if (abs(dph)>phidev) {ia++;continue;}
 	      if (abs(dpt)>maxdev) {ia++;continue;}
-	      double err=abs(dpt);
+	      double err=abs(dph);
 	      if (err<=errmin)
 		{
 		  errmin=err;
@@ -2726,11 +2735,12 @@ void GenericAnalysis::alternativeAssociate()
 	  
 	  // Not found in MC tracks
 	  mctrack_t& tk=(*ihbp);
-	  if (tk.pt<thePtCut_) {printf("Low Pt Fake %f \n",tk.pt);
+	  if (tk.pt<thePtCut_) {
+	    //printf("Low Pt Fake %f \n",tk.pt);
 	    continue;}
 	  double err_ass=9999.;
 	  bool foundfake=false;
-	  printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
+	  //printf("Studying unassociated Hough Track %f %f %d %d\n",tk.pt,tan(tk.phi),tk.nhits,theFakeTracks_.size());
 	  /* for (std::vector<uint32_t>::iterator itl=tk.layers.begin();itl!=tk.layers.end();itl++)
 	    {
 	      uint32_t ll=(*itl);
@@ -2742,9 +2752,9 @@ void GenericAnalysis::alternativeAssociate()
 	      double dph=tan(tk.phi-(*ia).phi);						
 	      double dpt=(tk.pt-(*ia).pt)/tk.pt;
 	      double maxdev=PTERRCUT*tk.pt;
-	      if (tk.pterr>maxdev) maxdev=(*ia).pterr;
+	      //if (tk.pterr>maxdev) maxdev=(*ia).pterr;
 	      double phidev=PHIERRCUT;
-	      if (tk.phierr>phidev) phidev=(*ia).phierr;
+	      //if (tk.phierr>phidev) phidev=(*ia).phierr;
 
 	      //  printf("%f %f \n",abs(dph),abs(dpt)/(*ia).pt);
 	      if (abs(dph)>phidev) {continue;}
@@ -4293,9 +4303,11 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
       int idx_s;
       int idx_p;
+      uint32_t nc[32];
       for (int isel=theSectorMin;isel<theSectorMax;isel++)
 	{
 	  int gpu_nstub=0;
+	  
 	  theHoughCandidateVector_.clear();
 	  for (uint32_t isect=1;isect<57;isect++)
 	    {
@@ -4303,7 +4315,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 	      //if (isect!=1  && isect!=5 && isect!=53) continue;
 	      //if (isect!=16  && isect!=25 && isect!=38) continue;
 	      if (isect!=isel) continue;
-	  
+	      memset(nc,0,32*sizeof(uint32_t));
 	      endcap= (isect<16 || isect>=40);
 	      barrel=!endcap;
 	      if (endcap)
@@ -4373,6 +4385,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      h_y[gpu_nstub]=s.y;
 			      h_z[gpu_nstub]=s.z;
 			      uint16_t zinfo=0;
+			      nc[s.layer-1]++;
 			      if (s.layer<=7) zinfo=1;
 			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
 				zinfo=2;
@@ -4478,7 +4491,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 			      h_x[gpu_nstub]=s.x;
 			      h_y[gpu_nstub]=s.y;
 			      h_z[gpu_nstub]=s.z;
-			      
+			      nc[s.layer-1]++;
 			      uint16_t zinfo=0;
 			      if (s.layer<=7) zinfo=1;
 			      if (s.layer>10 && stub_ladder->at(hitIndex)<9)
@@ -4555,7 +4568,7 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 		  if (abs(im->second.rho0)>0.5) continue;	  
 		  if (np>=5 &&im->second.pt>thePtCut_ && im->second.nhits>=5) 
 		    {
-		      INFO_PRINT("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.z0);
+		      DEBUG_PRINT("MC %d NSTUB %x %d PT %f   (phi) %f ->%d %d  %f\n",im->second.id,im->second.nstubs,np,im->second.pt,im->second.phi,np,im->second.nhits,im->second.z0);
 		      if (np>im->second.maxstubs) 	im->second.maxstubs=np;
 		      if (im->second.valid)					
 			continue;
@@ -4587,7 +4600,8 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 		  
 		  //ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 		  
-		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  //ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  ch.ComputeTracklet(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 
 		  // uint32_t size_buf=0,ns=0;
 	      // 	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)
@@ -4620,13 +4634,16 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 		  
 		  //printf("%d %d %d => %d %d \n",evt,isel,gpu_nstub,v.size(),ntot);
 		  
-		  INFO_PRINT("Fin du GPU %ld \n",	theHoughCandidateVector_.size() );
+		  INFO_PRINT("Fin du GPU %ld  \n",	theHoughCandidateVector_.size() );
 
 		}
 	      //
 
 	      std::sort(theHoughCandidateVector_.begin(),theHoughCandidateVector_.end(),mctsort);
 	      hnct->Fill(theHoughCandidateVector_.size()*1.);
+	      //printf("%d Fin du GPU %ld MC map size %d Good %d \n",evtnum,theHoughCandidateVector_.size(),(int) theMCMap_.size(),ngood);
+	      //for (int jj=0;jj<24;jj++) printf(" %d",nc[jj]);
+	      //printf("\n");
 	      alternativeAssociate();
 	      basicHistos(isel);
 	      basicHistos(-1);

@@ -8,7 +8,7 @@ HoughLocal.o: src/HoughLocal.cxx  include/HoughLocal.h  include/HoughStruct.h
 	g++ -c  -o HoughLocal.o   -I include -I$(ROOTSYS)/include src/HoughLocal.cxx
 
 ComputerHough.o: include/ComputerHough.h src/ComputerHough.cxx GPU/libhoughCPU.h
-	g++ -c  -o ComputerHough.o -I include -I GPU src/ComputerHough.cxx
+	g++ -c  -o ComputerHough.o -I$(ROOTSYS)/include -I include -I GPU src/ComputerHough.cxx
 FileEventProxy.o: include/FileEventProxy.h src/FileEventProxy.cxx 
 	g++ -c  -o FileEventProxy.o -I include src/FileEventProxy.cxx
 

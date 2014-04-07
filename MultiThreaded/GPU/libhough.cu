@@ -147,6 +147,8 @@ localRegression(float xp,float yp,float* d,float* res)
   res[7]=xi;
   res[8]=-__logf(abs(__tanf(atanf(a)/2)));
   if (z<0) res[8]=-res[8];
+  res[8]=-__logf(abs((1+__fsqrt_ru(1+a*a))/a) );
+  if (a>0) res[8]=-res[8];
   res[9]=n;
 
  
@@ -170,7 +172,7 @@ doRegressionKernel(float *d_x, float *d_y,unsigned int* d_layer,unsigned int mod
 
   unsigned int la=d_layer[id];
   unsigned int l=d_layer[id]&0xFFFF;
-  unsigned int zinfo=(d_layer[id]>>16)&0xF;
+  unsigned int zinfo=(d_layer[id]>>16)&0x3;
   if ((mode==1 && (l==5||l==6||l==7)) || mode==0)
     //  if ((1>0))
     { 
@@ -570,7 +572,7 @@ computeChi2Kernel(float* d_xi,float* d_yi,unsigned int* di_layer,float* d_ri,flo
   atomicAdd(&d_reg[80],del2);
   // R z
   unsigned int l=(di_layer[is]&0xFFFF);
-  unsigned int zinfo=((di_layer[is]>>16)&0xF);
+  unsigned int zinfo=((di_layer[is]>>16)&0x3);
   //  if (endcap || (l==5) || (l==6) || (l==7)) 
   if (zinfo!=0)
     {
@@ -600,7 +602,7 @@ copyFromValKernel(unsigned int ith,unsigned int ir,unsigned int nbintheta,short*
 	  float x=d_xi[ib],y=d_yi[ib],r=d_ri[ib],z=d_zi[ib];
 	  unsigned int la=di_layer[ib]; 
 	  unsigned int l=(di_layer[ib]&0xFFFF); 
-	  unsigned int zinfo=(di_layer[ib]>>16)&0xF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0x3; 
 	  d_xo[id]=x;
 	  d_yo[id]=y;
 	  d_ro[id]=r;
@@ -675,7 +677,7 @@ copyPositionKernel(unsigned int* d_map,float* d_xi,float* d_yi,unsigned int* di_
 	  //unsigned int l=di_layer[ib];
 	  unsigned int la=di_layer[ib]; 
 	  unsigned int l=(di_layer[ib]&0xFFFF); 
-	  unsigned int zinfo=(di_layer[ib]>>16)&0xF; 
+	  unsigned int zinfo=(di_layer[ib]>>16)&0x3; 
  
 	  d_xo[id]=x;
 	  d_yo[id]=y;
