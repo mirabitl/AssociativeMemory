@@ -4,6 +4,7 @@
 #include "DCHistogramHandler.h"
 #include <math.h>
 #include <string.h>
+#include <iostream>
 
 ComputerHough::ComputerHough(HoughCut* cuts) :theCuts_(cuts)
 {
@@ -427,6 +428,9 @@ void combineLayer(tklevent* e,uint32_t l1,uint32_t l2)
 	  tklet* tkl=&e->cand_[e->ntkl_];
 	  //printf("%x %x %d %d \n",e->lay_[i],e->lay_[j],(e->lay_[i]>>16)&0x3,(e->lay_[j]>>16)&0x3);
 	  tkl->nhit_=0; 
+	  tkl->pattern_=0; 
+	  tkl->pattern_ |=(1<<l1);
+	  tkl->pattern_ |=(1<<l2);
 	  tkl->idx_[tkl->nhit_++]=i;
 	  tkl->idx_[tkl->nhit_++]=j;
 	  e->ntkl_++;
@@ -748,7 +752,7 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
   for (int il=5;il<24;il++)
     { 
       addLayer(&evt,il,hd3,hdr3);
-      ng= computeTklets(&evt);
+      //ng= computeTklets(&evt);
       
     }
   ng= computeTklets(&evt);
@@ -772,7 +776,7 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
       hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
       if (tk->nzr_>2 && (endcap ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
       if (inter && tk->nzr_==2) continue;
-      //regressiontklet(&tkext,&evt);
+      regressiontklet(&tkext,&evt);
       ng++;
       mctrack_t t;
       t.z0=tk->z0_;

@@ -5,40 +5,17 @@
 #include "libhoughStruct.h"
 #include "HoughStruct.h"
 #include "libhough.h"
+#include "TkComputer.h"
+#include "libtklet.h"
 
-typedef struct
-{
-  float RhoMin;
-  float RhoMax;
-  uint32_t NRho;
-  uint32_t NTheta;
-  uint32_t NStubLow;
-  uint32_t NLayerRow;
-  uint32_t NStubLowCandidate;
-  uint32_t NBins3GeV;
-  uint32_t NBins5GeV; 
-  uint32_t NBins15GeV;
-  uint32_t NBins30GeV;
-  uint32_t NBins100GeV;
-  uint32_t NStubHigh;
-  uint32_t NLayerHigh;
-  uint32_t NStubHighCandidate;
-  float NDelBarrel;
-  float NDelInter;
-  float NDelEndcap;
-  
-} HoughCut;
-
-
-
-class CudaHough
+class CudaHough : public virtual TkComputer
 {
 public:
   CudaHough(HoughCut* cuts);
-  void DefaultCuts();
-  void Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
-  void ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
-  void ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer){;}
+  virtual void DefaultCuts();
+  virtual void Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
+  virtual void ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
+  virtual void ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer);
   std::vector<mctrack_t> &getCandidates(){return theCandidateVector_;}
   static void Convert(double theta,double r,mctrack_t *m);
 protected:
@@ -52,5 +29,6 @@ protected:
   float* theY_;
   float* theZ_;
   uint32_t* theLayer_;
+  cudatklevent et_;
 };
 #endif

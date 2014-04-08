@@ -3,6 +3,11 @@
 #include "CudaHough.h"
 #include <math.h>
 #include <iostream>
+#include <sstream>
+#include <string.h>
+#include <TMath.h>
+#include "DCHistogramHandler.h"
+
 CudaHough::CudaHough(HoughCut* cuts) :theCuts_(cuts)
 {
   theNStub_=0;
@@ -19,6 +24,8 @@ CudaHough::CudaHough(HoughCut* cuts) :theCuts_(cuts)
   createStreams(96);
   initialiseTimer();
 
+  createTkletEvent(&et_);
+  printf("%d size \n",sizeof(ctklevent));
 }
 void CudaHough::DefaultCuts()
 {
@@ -418,4 +425,102 @@ void CudaHough::Convert(double theta,double r,mctrack_t *m)
 
 
  
+}
+void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)
+{int isect=isel;
+ DCHistogramHandler* rh=DCHistogramHandler::instance();
+  std::stringstream s;
+  s<<"/sector"<<isect<<"/";
+  TH1* hd3=rh->GetTH1(s.str()+"dist3");
+  TH1* hdr3=rh->GetTH1(s.str()+"distr3");
+  TH1* hd4=rh->GetTH1(s.str()+"dist4");
+  TH1* hdr4=rh->GetTH1(s.str()+"distr4");
+  TH1* hphi5=rh->GetTH1("phi5");
+  TH1* hc2=rh->GetTH1(s.str()+"chi2");
+  TH1* hc2r=rh->GetTH1(s.str()+"chi2r");
+  TH1* hr5=rh->GetTH1(s.str()+"chi2");
+  TH2* hpthi=rh->GetTH2(s.str()+"pthi");
+  if (hd3==0)
+    {
+      hd3=rh->BookTH1(s.str()+"dist3",2000,-1.,1.);
+      hdr3=rh->BookTH1(s.str()+"distr3",200,-5.,5.);
+      hd4=rh->BookTH1(s.str()+"dist4",200,-1.,1.);
+      hdr4=rh->BookTH1(s.str()+"distr4",200,-10.,10.);
+      hphi5=rh->BookTH1("phi5",200,-PI,PI);
+      hr5=rh->BookTH1(s.str()+"r5",200,0.,200.);
+      hc2=rh->BookTH1(s.str()+"chi2",2000,0.,2.);
+      hc2r=rh->BookTH1(s.str()+"chi2r",2000,0.,2.);
+      hpthi=rh->BookTH2(s.str()+"pthi",200,0.,20.,200,0.,2*PI);
+
+    }
+  
+
+
+  theNStub_=nstub;
+  theX_=x;
+  theY_=y;
+  theZ_=z;  
+  theLayer_=layer;
+  memcpy(et_.host_->x_,x,nstub*sizeof(float));
+  memcpy(et_.host_->y_,y,nstub*sizeof(float));
+  memcpy(et_.host_->z_,z,nstub*sizeof(float));
+  memcpy(et_.host_->lay_,layer,nstub*sizeof(uint32_t));
+  et_.host_->nstub_=nstub;
+  et_.host_->sector_=isel;
+  theCandidateVector_.clear();
+  // Initialisation depending on sector 
+  et_.host_->barrel_=isel>=16 && isel<40;
+  et_.host_->inter_=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
+  et_.host_->endcap_=(isel<8)||(isel>=48);
+  //copyFromHost(&et_);
+  et_.host_->ntkl_=0;
+  fillDevice(&et_);
+  combineLayer(&et_);
+  computeTklet(&et_);
+  
+
+  addLayer(&et_);
+  computeTklet(&et_);
+  copyToHost(&et_);
+  theCandidateVector_.clear();
+  uint32_t ng=0;
+  for (int it=0;it<et_.host_->ntkl_;it++)
+    {
+      ctklet* tk=&(et_.host_->cand_[it]);
+      //printf("\t %d %d %x %f %f \n",it,tk->ok_,tk->pattern_,tk->pt_,tk->z0_); 
+      if (et_.host_->barrel_ && tk->nxy_<=4) continue;
+      if (et_.host_->endcap_ && tk->nxy_<=3) continue;
+      if (et_.host_->inter_ && tk->nxy_<=3) continue;
+      ctklet tkext;
+      memcpy(&tkext,tk,sizeof(ctklet));
+
+      //hpthi->Fill(fabs(tk->pt_),tk->phi_);
+      if (fabs(tk->z0_)>20.) continue;
+      if (fabs(tk->pt_)<1.8) continue;
+      hc2->Fill(TMath::Prob(tk->chi2_,(tk->nxy_-2)));
+      if ( TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue;
+
+      hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
+      if (tk->nzr_>2 && (et_.host_->endcap_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
+      if (et_.host_->inter_ && tk->nzr_==2) continue;
+      //regressiontklet(&tkext,&evt);
+      ng++;
+      mctrack_t t;
+      t.z0=tk->z0_;
+      t.eta=tk->eta_;
+
+			  
+	      
+      t.nhits=tk->nhit_;
+      t.theta=tk->theta_;
+      t.r=tk->R_;
+
+      t.pt=fabs(tk->pt_);
+      t.phi=tk->phi_;
+
+      t.layers.clear();
+      theCandidateVector_.push_back(t);
+    }
+  //printf(" Candidat %d  %d\n",et_.host_->ntkl_,ng);
+  
 }

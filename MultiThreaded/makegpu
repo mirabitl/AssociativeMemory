@@ -13,11 +13,11 @@ FileEventProxy.o: include/FileEventProxy.h src/FileEventProxy.cxx
 	g++ -c  -o FileEventProxy.o -I include src/FileEventProxy.cxx
 
 CudaHough.o: include/CudaHough.h src/CudaHough.cxx GPU/libhough.h
-	g++ -c  -o CudaHough.o -I include -I GPU src/CudaHough.cxx
+	g++ -c  -o CudaHough.o -I$(ROOTSYS)/include  -I include -I GPU src/CudaHough.cxx
 
 GenericAnalysisCPU: GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o GPU/libhoughCPU.o ComputerHough.o FileEventProxy.o
 	g++ -o GenericAnalysisCPU GenericAnalysisCPU.o DCHistogramHandler.o HoughLocal.o ComputerHough.o FileEventProxy.o  GPU/libhoughCPU.o   `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO
-GenericAnalysisGPU: GenericAnalysisGPU.o DCHistogramHandler.o HoughLocal.o GPU/libhough.o  CudaHough.o FileEventProxy.o
-	g++ -o GenericAnalysisGPU  GenericAnalysisGPU.o HoughLocal.o DCHistogramHandler.o CudaHough.o FileEventProxy.o GPU/libhough.o GPU/libhoughCPU.o `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO -L/usr/local/cuda/lib64 -lcuda -lcudart
+GenericAnalysisGPU: GenericAnalysisGPU.o DCHistogramHandler.o HoughLocal.o GPU/libhough.o  CudaHough.o FileEventProxy.o  GPU/libtklet.o
+	g++ -o GenericAnalysisGPU  GenericAnalysisGPU.o HoughLocal.o DCHistogramHandler.o CudaHough.o FileEventProxy.o GPU/libhough.o GPU/libhoughCPU.o GPU/libtklet.o  `$(ROOTSYS)/bin/root-config --libs --ldflags --glibs` -lXMLIO -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 all:GenericAnalysisCPU GenericAnalysisGPU
