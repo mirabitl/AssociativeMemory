@@ -15,17 +15,20 @@ typedef struct {
 
 } ctklet;
 
-#define GPU_MAX_CTKLET 1024
+#define GPU_MAX_CTKLET 2048
 typedef struct
 {
-  unsigned int sector_,nstub_;
+  int flay_[32*128];
   float x_[GPU_MAX_STUB],y_[GPU_MAX_STUB];
   float z_[GPU_MAX_STUB],r_[GPU_MAX_STUB];
   float xp_[GPU_MAX_STUB],yp_[GPU_MAX_STUB];
   unsigned int lay_[GPU_MAX_STUB];
+  unsigned int sector_,nstub_;
+  unsigned int endcap_,barrel_,inter_;
+
   unsigned int ntkl_;
   ctklet cand_[GPU_MAX_CTKLET];
-  bool barrel_,inter_,endcap_,dummy;
+
 } ctklevent;
 
 typedef struct 

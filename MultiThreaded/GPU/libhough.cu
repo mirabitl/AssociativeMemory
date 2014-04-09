@@ -145,8 +145,8 @@ localRegression(float xp,float yp,float* d,float* res)
   res[5]=R;
   res[6]=pt;
   res[7]=xi;
-  res[8]=-__logf(abs(__tanf(atanf(a)/2)));
-  if (z<0) res[8]=-res[8];
+  /* res[8]=-__logf(abs(__tanf(atanf(a)/2))); */
+  /* if (z<0) res[8]=-res[8]; */
   res[8]=-__logf(abs((1+__fsqrt_ru(1+a*a))/a) );
   if (a>0) res[8]=-res[8];
   res[9]=n;

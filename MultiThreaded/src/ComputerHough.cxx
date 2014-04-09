@@ -641,7 +641,7 @@ void addLayer(tklevent* e,uint32_t l1,TH1* hdist, TH1* hdistr)
     }
 }
 static tklevent evt;
-void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)
+void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer,int32_t* flayer)
 {
  int isect=isel;
  DCHistogramHandler* rh=DCHistogramHandler::instance();
@@ -746,10 +746,10 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
 	  combineLayer(&evt,11,12);
 
 	}
-      //printf("6-7 %d \n",evt.ntkl_);
+  //printf("Number of tracklet %d \n",evt.ntkl_);
   uint32_t ng= computeTklets(&evt);
   //printf("nb 2 poins %d \n",ng);
-  for (int il=5;il<24;il++)
+  for (int il=24;il>=5;il--)
     { 
       addLayer(&evt,il,hd3,hdr3);
       //ng= computeTklets(&evt);
@@ -776,12 +776,12 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
       hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
       if (tk->nzr_>2 && (endcap ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
       if (inter && tk->nzr_==2) continue;
-      regressiontklet(&tkext,&evt);
+      //regressiontklet(&tkext,&evt);
       ng++;
       mctrack_t t;
       t.z0=tk->z0_;
       t.eta=tk->eta_;
-
+      t.matches=tk->pattern_;
 			  
 	      
       t.nhits=tk->nhit_;

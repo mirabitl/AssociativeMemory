@@ -2587,8 +2587,10 @@ void GenericAnalysis::analyzePrecise()
 }
 void GenericAnalysis::cleanDuplicate(std::vector <mctrack_t> vall)
 {
+  std::sort(vall.begin(),vall.end(),mctsort);
   for (std::vector <mctrack_t>::iterator it=vall.begin();it<vall.end();it++)
     {
+
       bool found=false;
       for (std::vector <mctrack_t>::iterator ihbp=theHoughCandidateVector_.begin();ihbp<theHoughCandidateVector_.end();ihbp++)
 	{
@@ -2602,7 +2604,10 @@ void GenericAnalysis::cleanDuplicate(std::vector <mctrack_t> vall)
 	  if (found) break;
 	  
 	}
-      if (!found) theHoughCandidateVector_.push_back(*it);
+      if (!found)
+	{theHoughCandidateVector_.push_back(*it);
+	  //printf(" Tkc %f %f %f %f %x \n",it->pt,it->phi,it->z0,it->eta,it->matches);
+	}
     }
 }
 
@@ -4137,7 +4142,7 @@ void GenericAnalysis::FillMapEightSector(std::string fname)
 #endif
 void GenericAnalysis::CPULoopTest(std::string fname)
 {
-  
+  int max_clay=-9999;
   TChain *L1TT            = new TChain("FullInfo");  
 
   L1TT->Add(fname.c_str());
@@ -4597,11 +4602,27 @@ void GenericAnalysis::CPULoopTest(std::string fname)
 
 	      if (gpu_nstub<1024 &&gpu_nstub>4) 
 		{
+		  int clay[32];
+		  int32_t flay[32*128];
+		  memset(clay,0,32*sizeof(int));
+		  
+		  memset(flay,0xFF,32*128*sizeof(int32_t));
+		  for (int i=0;i<gpu_nstub;i++)
+		    {
+		      int l=h_layer[i]&0xFFFF;
+		      flay[l*128+clay[l]]=i;
+		      clay[l]++;
+		    }
+		  // for (int i=0;i<128;i++)
+		  //   printf("%x ",flay[6*128+i]);
+		  // printf("%d \n",clay[6]);
+		  // getchar();
 		  
 		  //ch.Compute(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
 		  
-		  //ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
-		  ch.ComputeTracklet(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  ch.ComputeOneShot(isel,gpu_nstub,h_x,h_y,h_z,h_layer);
+		  //		  printf("NSTUB %d \n",gpu_nstub);
+		  //ch.ComputeTracklet(isel,gpu_nstub,h_x,h_y,h_z,h_layer,flay);
 
 		  // uint32_t size_buf=0,ns=0;
 	      // 	  for (std::map<uint32_t,stub_t>::iterator is=theStubMap_.begin();is!=theStubMap_.end();is++)

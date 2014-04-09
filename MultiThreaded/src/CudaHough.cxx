@@ -426,7 +426,7 @@ void CudaHough::Convert(double theta,double r,mctrack_t *m)
 
  
 }
-void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)
+void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer,int32_t* flayer)
 {int isect=isel;
  DCHistogramHandler* rh=DCHistogramHandler::instance();
   std::stringstream s;
@@ -465,10 +465,12 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
   memcpy(et_.host_->y_,y,nstub*sizeof(float));
   memcpy(et_.host_->z_,z,nstub*sizeof(float));
   memcpy(et_.host_->lay_,layer,nstub*sizeof(uint32_t));
+  memcpy(et_.host_->flay_,flayer,32*128*sizeof(int32_t));
   et_.host_->nstub_=nstub;
   et_.host_->sector_=isel;
   theCandidateVector_.clear();
   // Initialisation depending on sector 
+  
   et_.host_->barrel_=isel>=16 && isel<40;
   et_.host_->inter_=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
   et_.host_->endcap_=(isel<8)||(isel>=48);
@@ -476,6 +478,8 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
   et_.host_->ntkl_=0;
   fillDevice(&et_);
   combineLayer(&et_);
+ 
+
   computeTklet(&et_);
   
 
@@ -487,12 +491,15 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
   for (int it=0;it<et_.host_->ntkl_;it++)
     {
       ctklet* tk=&(et_.host_->cand_[it]);
-      //printf("\t %d %d %x %f %f \n",it,tk->ok_,tk->pattern_,tk->pt_,tk->z0_); 
+      if (!tk->ok_) continue;
       if (et_.host_->barrel_ && tk->nxy_<=4) continue;
       if (et_.host_->endcap_ && tk->nxy_<=3) continue;
       if (et_.host_->inter_ && tk->nxy_<=3) continue;
-      ctklet tkext;
-      memcpy(&tkext,tk,sizeof(ctklet));
+      // if (tk->ok_)
+      // 	printf("\t %d %d %f : %f %f %f \n",it,tk->ok_,tk->nxy_,tk->pt_,tk->phi_,tk->z0_); 
+
+      // ctklet tkext;
+      // memcpy(&tkext,tk,sizeof(ctklet));
 
       //hpthi->Fill(fabs(tk->pt_),tk->phi_);
       if (fabs(tk->z0_)>20.) continue;
@@ -502,7 +509,9 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
 
       hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
       if (tk->nzr_>2 && (et_.host_->endcap_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
-      if (et_.host_->inter_ && tk->nzr_==2) continue;
+      if (tk->nzr_>2 && (et_.host_->barrel_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
+      if (et_.host_->inter_ && tk->nzr_<=2) continue;
+      //if (et_.host_->barrel_ && tk->nzr_==2) continue;
       //regressiontklet(&tkext,&evt);
       ng++;
       mctrack_t t;
@@ -510,7 +519,8 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
       t.eta=tk->eta_;
 
 			  
-	      
+      t.matches=tk->pattern_;
+      
       t.nhits=tk->nhit_;
       t.theta=tk->theta_;
       t.r=tk->R_;
