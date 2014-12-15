@@ -27,6 +27,8 @@ typedef struct {
   float* d_y;
   float* d_z;
   float* d_r;
+  float* d_tmin;
+  float* d_tmax;
   unsigned int* d_layer;
   // Device image
   unsigned int* d_images;

@@ -52,7 +52,7 @@ fillConformalKernel(ctklevent* d)
   const unsigned int ib=blockIdx.x;
 
   double r2=d->x_[ib]*d->x_[ib]+d->y_[ib]*d->y_[ib];
-  d->r_[ib]=sqrt(r2);
+  d->r_[ib]=__fsqrt_ru(r2);
   d->xp_[ib]=d->x_[ib]/r2;
   d->yp_[ib]=d->y_[ib]/r2;
   //__syncthreads();
@@ -86,11 +86,11 @@ combineLayerKernel(ctklevent* d)
   if (d->inter_ && !barok) return;
   if (d->endcap_ && d->sector_<8)
     {
-      if (!( (l1==5 && l2==18) || (l1==5 && l2==19) || (l1==18 && l2==19))) return;
+      if (!((l1==5 && l2==6) || (l1==5 && l2==18) || (l1==5 && l2==19) || (l1==18 && l2==19)|| (l1==6 && l2==18) || (l1==6 && l2==19)  )) return;
     }
-  if (d->endcap_ && d->sector_>=48)
+  if (d->endcap_ && d->sector_>=40)
     {
-      if (!( (l1==5 && l2==11) || (l1==5 && l2==12) || (l1==11 && l2==12))) return;
+      if (!( (l1==5 && l2==6) || (l1==5 && l2==11) || (l1==5 && l2==12) || (l1==11 && l2==12)|| (l1==6 && l2==11) || (l1==6 && l2==12) )) return;
     }
 
   
@@ -99,7 +99,7 @@ combineLayerKernel(ctklevent* d)
   double a =(d->yp_[js]-d->yp_[is])/(d->xp_[js]-d->xp_[is]);
   //if ((isel%4==0) && (a<-0.25 || a>1.55)) continue;
   double b =d->yp_[js]-a*d->xp_[js];
-  double pt=5.7E-3*sqrt((a*a+1)/b/b);
+  double pt=5.7E-3*__fsqrt_ru((a*a+1)/b/b);
   if (fabs(pt)<1.8) return;
   double ar=(d->r_[js]-d->r_[is])/(d->z_[js]-d->z_[is]);
   double br=d->r_[js]-ar*d->z_[js];
@@ -159,7 +159,7 @@ combineLayerKernel(ctklevent* d,unsigned int l1,unsigned int l2)
   double a =(d->yp_[js]-d->yp_[is])/(d->xp_[js]-d->xp_[is]);
   //if ((isel%4==0) && (a<-0.25 || a>1.55)) continue;
   double b =d->yp_[js]-a*d->xp_[js];
-  double pt=5.7E-3*sqrt((a*a+1)/b/b);
+  double pt=5.7E-3*__fsqrt_ru((a*a+1)/b/b);
   if (fabs(pt)<1.8) return;
   double ar=(d->r_[js]-d->r_[is])/(d->z_[js]-d->z_[is]);
   double br=d->r_[js]-ar*d->z_[js];
@@ -206,11 +206,16 @@ void combineLayer(cudatklevent* e)
 	{
       dim3  grid1(128,1, 1);
       dim3  threads1(128,1, 1);
+      combineLayerKernel<<<grid1,threads1>>>(e->device_,5,6);
       combineLayerKernel<<<grid1,threads1>>>(e->device_,5,18);
       //cudaDeviceSynchronize();
-      combineLayerKernel<<<128,128>>>(e->device_,5,19);
+      //combineLayerKernel<<<128,128>>>(e->device_,5,19);
       //cudaDeviceSynchronize();
-      combineLayerKernel<<<128,128>>>(e->device_,18,19);
+      combineLayerKernel<<<grid1,threads1>>>(e->device_,6,18);
+      //cudaDeviceSynchronize();
+      //combineLayerKernel<<<128,128>>>(e->device_,6,19);
+
+      //combineLayerKernel<<<128,128>>>(e->device_,18,19);
       cudaDeviceSynchronize();
 
 	}
@@ -218,11 +223,16 @@ void combineLayer(cudatklevent* e)
 	{
 	        dim3  grid1(128,1, 1);
       dim3  threads1(128,1, 1);
+      combineLayerKernel<<<grid1,threads1>>>(e->device_,5,6);
       combineLayerKernel<<<grid1,threads1>>>(e->device_,5,11);
       //cudaDeviceSynchronize();
-      combineLayerKernel<<<128,128>>>(e->device_,5,12);
+      //combineLayerKernel<<<128,128>>>(e->device_,5,12);
+      combineLayerKernel<<<grid1,threads1>>>(e->device_,6,11);
       //cudaDeviceSynchronize();
-      combineLayerKernel<<<128,128>>>(e->device_,11,12);
+      // combineLayerKernel<<<128,128>>>(e->device_,6,12);
+
+      //cudaDeviceSynchronize();
+      // combineLayerKernel<<<128,128>>>(e->device_,11,12);
       cudaDeviceSynchronize();
 
 	}
@@ -245,7 +255,7 @@ addLayerKernel(ctklevent* e)
 
   //double r2=e->r_[is]*e->r_[is];
   //r2=1.;
-  double distx=(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/sqrt(1+t->ax_*t->ax_);
+  double distx=(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/__fsqrt_ru(1+t->ax_*t->ax_);
 	  //	  if (fabs(distx)<1E-3)
 	  //printf("is %d %f r2 %f %f %f %x pattern %x  \n",is,e->r_[is],distx,r2,t->ax_,e->lay_[is],t->pattern_);
 
@@ -256,15 +266,15 @@ addLayerKernel(ctklevent* e)
   if (l1<=10) cut /=2;
   if (e->barrel_ && fabs(distx)>cut) return;
   if (e->inter_ && fabs(distx)>cut) return;
-  if (e->endcap_ && fabs(distx)>cut) return;
+  if (e->endcap_ && fabs(distx)>0.7*cut) return;
   if (((e->lay_[is]>>16)&0x3)!=0)
     {
-      double distr=(t->ar_*e->z_[is]+t->br_-e->r_[is])/sqrt(1+t->ar_*t->ar_);
+      double distr=(t->ar_*e->z_[is]+t->br_-e->r_[is])/__fsqrt_ru(1+t->ar_*t->ar_);
       
-      if (fabs(distr)>0.6) return;
+      if (!e->endcap_ && fabs(distr)>0.6) return;
 	      //  if (e->barrel_ && fabs(distr)>0.45) continue;
 	      // if (e->inter_ && fabs(distr)>0.2) continue;
-	      //if (e->endcap_ && fabs(distr)>0.2) continue;
+      if (e->endcap_ && fabs(distr)>0.4) return;
     }
   unsigned int old=atomicOr(&t->pattern_,(1<<l1));
   if ((old&(1<<l1))!=0) return;
@@ -336,15 +346,15 @@ computeTkletKernel(ctklevent* e)
   t->phi_=atan(t->ax_);
   if (t->phi_<0) t->phi_+=2*PI;
 
-    float xp1=e->xp_[t->idx_[0]];
-    float yp1=e->yp_[t->idx_[0]];
+    double xp1=e->xp_[t->idx_[0]];
+    double yp1=e->yp_[t->idx_[0]];
     if (xp1>0 && yp1>0 && t->phi_>PI) t->phi_-=PI;
     if (xp1<0 && yp1>0 && t->phi_>PI) t->phi_-=PI;
     if (xp1<0 && yp1<0 && t->phi_<PI) t->phi_+=PI;
     if (xp1>0 && yp1<0 && t->phi_<PI) t->phi_+=PI;
 
   t->theta_=atan(-1./t->ax_);
-  t->pt_=5.7E-3*sqrt((t->ax_*t->ax_+1)/t->bx_/t->bx_);
+  t->pt_=5.7E-3*__fsqrt_ru((t->ax_*t->ax_+1)/t->bx_/t->bx_);
       //      printf("%f %f  \n",t->ax_,t->bx_);
   if (fabs(t->pt_)<1.8) {t->ok_=false;return;}
   s2z = t->sumz2_/t->nzr_-(t->sumz_/t->nzr_)*(t->sumz_/t->nzr_);
@@ -355,7 +365,7 @@ computeTkletKernel(ctklevent* e)
   t->z0_=-t->br_/t->ar_;
   if (fabs(t->z0_)>20) {t->ok_=false;return;}
   //t->eta_=-log(fabs(tan(atan( t->ar_)/2)));
-  t->eta_=-log(fabs((1+sqrt(1+t->ar_*t->ar_))/t->ar_) );
+  t->eta_=-log(fabs((1+__fsqrt_ru(1+t->ar_*t->ar_))/t->ar_) );
   if (t->ar_>0) t->eta_=-1*t->eta_;
   //if (t->nxy_>4) ngood++;
       
@@ -364,10 +374,10 @@ computeTkletKernel(ctklevent* e)
   for (int ih=0;ih<t->nhit_;ih++)
     {
       int is=t->idx_[ih];
-      double distx=(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/sqrt(1+t->ax_*t->ax_)/8.4E-6;
+      double distx=(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/__fsqrt_ru(1+t->ax_*t->ax_)/8.4E-6;
       t->chi2_+=distx*distx;
       if (((e->lay_[is]>>16)&0x3)==0) continue;
-      double deltar=(t->ar_*e->z_[is]+t->br_-e->r_[is])/sqrt(1+t->ar_*t->ar_)/0.06;
+      double deltar=(t->ar_*e->z_[is]+t->br_-e->r_[is])/__fsqrt_ru(1+t->ar_*t->ar_)/0.06;
       t->chi2r_+=deltar*deltar;
 
     }

@@ -33,5 +33,6 @@ public:
   virtual void Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)=0;
   virtual void ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer)=0;
   virtual void ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer,int32_t* flay)=0;
+  virtual void* getHough()=0;
 };
 #endif

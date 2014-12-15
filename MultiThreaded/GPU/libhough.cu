@@ -276,7 +276,7 @@ calculateHoughPointKernel(float *d_x, float *d_y,unsigned int nbinrho,unsigned i
 }
 
 __global__ void
-computeHoughPointKernel(float *d_x, float *d_y,short* d_val,houghLimits hl)
+computeHoughPointKernel(float *d_x, float *d_y,short* d_val,houghLimits hl,float *d_ti,float *d_ta)
 {
   // shared memory
   // the size is determined by the host application
@@ -295,6 +295,10 @@ computeHoughPointKernel(float *d_x, float *d_y,short* d_val,houghLimits hl)
   if (ith>=hl.ntheta) return;
   
   REAL_T theta=thmin+(ith+0.5)*(thmax-thmin)/blockDim.x;
+  //  if (tan(theta)<d_ti[is] || tan(theta)>d_ta[is]){
+  //  d_val[is*nbintheta+ith]=-1;
+  //  return;
+  // }
   REAL_T r=d_x[is]*__cosf(theta)+d_y[is]*__sinf(theta);
   short ir=int(floor((r-rmin)/((rmax-rmin)/nbinrho)));
   if (ir>=0 && ir<nbinrho) 
@@ -504,7 +508,7 @@ ListHoughPointKernel(unsigned int* d_hough,unsigned int* d_hough_layer,unsigned 
 }
 
 __global__ void
-conformalPositionKernel(float* d_xo,float* d_yo,float* d_ro)
+conformalPositionKernel(float* d_xo,float* d_yo,float* d_ro,float* d_ti,float* d_ta)
 {
   const unsigned int ib=blockIdx.x;
 
@@ -512,9 +516,17 @@ conformalPositionKernel(float* d_xo,float* d_yo,float* d_ro)
   REAL_T r=__fsqrt_ru(r2);
   REAL_T x= d_xo[ib]/r2;
   REAL_T y= d_yo[ib]/r2;
+  REAL_T centval=atan2(d_yo[ib]/r,d_xo[ib]/r);
+  REAL_T width=acosf(r*3.1E-3);
+  //if (centval>PI/2) centval-=PI;
+  //if (centval<-PI/2) centval+=PI;
+  d_ti[ib]=tan(centval+width);
+  d_ta[ib]=tan(centval-width);
+  if (d_ti[ib]>d_ta[ib]) {REAL_T a=d_ta[ib];d_ta[ib]=d_ti[ib];d_ti[ib]=a;}
   d_xo[ib]=x;
   d_yo[ib]=y;
   d_ro[ib]=r;
+
   // __syncthreads();
   //__threadfence();
 
@@ -741,6 +753,8 @@ void createHough(houghParam* p,uint32_t max_stub,uint32_t max_theta,uint32_t max
    checkCudaErrors(cudaMalloc((void **) &p->d_y, max_stub*sizeof(float)));
    checkCudaErrors(cudaMalloc((void **) &p->d_r, max_stub*sizeof(float)));
    checkCudaErrors(cudaMalloc((void **) &p->d_z, max_stub*sizeof(float)));
+   checkCudaErrors(cudaMalloc((void **) &p->d_tmin, max_stub*sizeof(float)));
+   checkCudaErrors(cudaMalloc((void **) &p->d_tmax, max_stub*sizeof(float)));
    checkCudaErrors(cudaMalloc((void **) &p->d_layer, max_stub*sizeof(unsigned int)));
    checkCudaErrors(cudaMalloc((void **) &p->d_cand, GPU_MAX_CAND*sizeof(unsigned int)));
 #ifdef OLD
@@ -768,6 +782,8 @@ void clean(houghParam* p)
   cleanFKernel<<<GPU_MAX_STUB,1>>>(p->d_y);
   cleanFKernel<<<GPU_MAX_STUB,1>>>(p->d_z);
   cleanFKernel<<<GPU_MAX_STUB,1>>>(p->d_r);
+  cleanFKernel<<<GPU_MAX_STUB,1>>>(p->d_tmin);
+  cleanFKernel<<<GPU_MAX_STUB,1>>>(p->d_tmax);
 
   cleanUIKernel<<<GPU_MAX_STUB,1>>>(p->d_layer);
   cleanUIKernel<<<GPU_MAX_CAND,1>>>(p->d_cand);
@@ -870,7 +886,7 @@ void fillConformalHough(houghParam* p,float* h_x,float* h_y,float* h_z,int strea
 				  cudaMemcpyHostToDevice,stream));
 
   dim3  grid1(p->nstub, 1, 1);
-  conformalPositionKernel<<< grid1,1,0,stream >>>(p->d_x,p->d_y,p->d_r);
+  conformalPositionKernel<<< grid1,1,0,stream >>>(p->d_x,p->d_y,p->d_r,p->d_tmin,p->d_tmax);
 
   if (streamid<0)
     cudaDeviceSynchronize();
@@ -883,6 +899,8 @@ void dump(houghParam* p)
   float y[1024];
   float z[1024];
   float r[1024];
+  float tmin[1024];
+  float tmax[1024];
   unsigned int layer[1024];
   
   checkCudaErrors(cudaMemcpy(x,p->d_x,p->nstub*sizeof(float),
@@ -892,6 +910,10 @@ void dump(houghParam* p)
   checkCudaErrors(cudaMemcpy(z,p->d_z,p->nstub*sizeof(float),
 			     cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaMemcpy(r,p->d_r,p->nstub*sizeof(float),
+			     cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(tmin,p->d_tmin,p->nstub*sizeof(float),
+			     cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(tmax,p->d_tmax,p->nstub*sizeof(float),
 			     cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaMemcpy(layer,p->d_layer,p->nstub*sizeof(float),
 			     cudaMemcpyDeviceToHost));
@@ -908,7 +930,7 @@ void dump(houghParam* p)
   printf("\n");
 
   for (int i=0;i<p->nstub;i++)
-    printf("\t %d: (%f,%f,%f) r %f Layer %x \n",i,x[i],y[i],z[i],r[i],layer[i]);
+    printf("\t %d: (%f,%f,%f) r %f Layer %x theta %f %f %f %f \n",i,x[i],y[i],z[i],r[i],layer[i],tmin[i],tmax[i],p->thetamin,p->thetamax);
 }
 
 void doRegression(houghParam* p,unsigned int mode )
@@ -1046,8 +1068,8 @@ void copyPositionHough(houghParam* pi,int icand,houghParam* po,unsigned int mode
        cudaDeviceSynchronize();
        po->nstub=int(po->h_reg[20]);
      }
-   //dump(po);
-   //getchar();
+   //   dump(pi);
+   // getchar();
 
 #endif
    /*
@@ -1131,11 +1153,11 @@ void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsi
   //getchar();
   if (process_mode==0)
     {
-    computeHoughPointKernel<<< grid1, threads1,0,stream>>>(p->d_x,p->d_y,p->d_val,hl);
+      computeHoughPointKernel<<< grid1, threads1,0,stream>>>(p->d_x,p->d_y,p->d_val,hl,p->d_tmin,p->d_tmax);
     }
   else
     if (process_mode==1)
-      computeHoughPointKernel<<< grid1,threads1,0,stream>>>(p->d_z,p->d_r,p->d_val,hl);
+      computeHoughPointKernel<<< grid1,threads1,0,stream>>>(p->d_z,p->d_r,p->d_val,hl,p->d_tmin,p->d_tmax);
   getLastCudaError("computeHoughPointKernel Kernel execution failed");
   if (streamid<0)
     cudaDeviceSynchronize();
@@ -1156,6 +1178,8 @@ void processHough(houghParam* p,unsigned int min_cut,unsigned int min_layer,unsi
   fillHoughKernel<<< grid1, threads1,0,stream>>>(p->d_val,p->d_layer,p->d_hough,p->d_hough_layer,p->d_hough_map,hl);
   getLastCudaError("fillHoughKernel Kernel execution failed");
 
+  //  dump(p);
+  // getchar();
 
   p->max_val=0;
   unsigned int threshold=4;

@@ -404,9 +404,136 @@ typedef struct
   tklet cand_[GPU_MAX_TKLET];
   bool barrel_,inter_,endcap_;
 } tklevent;
+void combineLayerAcu(tklevent* e,uint32_t l1,uint32_t l2,TH2* h,TH2* hpt)
+{
+  for (uint32_t i=0;i<e->nstub_;i++)
+    {
+      if ((e->lay_[i]&0xFFFF)!=l1) continue;
+      for (uint32_t j=0;j<e->nstub_;j++)
+	{
+	  if ((e->lay_[j]&0xFFFF)!=l2) continue;
+	   // calcul de a b en rphi
+	  double a =(e->yp_[j]-e->yp_[i])/(e->xp_[j]-e->xp_[i]);
+	  //if ((isel%4==0) && (a<-0.25 || a>1.55)) continue;
+	  double b =e->yp_[j]-a*e->xp_[j];
+	  double pt=5.7E-3*sqrt((a*a+1)/b/b);
+	  if (fabs(pt)<1.8) continue;
+	  double phi=atan(a);
+	  if (phi<0) phi+=2*PI;
+	  //printf("%f %f \n",a,b);
+	  h->Fill(a,b);
+	  //hpt->Fill( log(fabs(pt)),phi);
+	  hpt->Fill(atan(-1./a),sin(atan(-1./a))*b);
+	}
+    }
+}
+void findCandidateAcu(tklevent* e,TH2* hab,TH2* hptphi)
+{
+  e->ntkl_=0;
+
+  uint32_t acu_cut=3; // 3 avant
+  //if (e->nstub_>150)acu_cut++; 
+   int nac=0;
+  for (int ib=0;ib<hab->GetXaxis()->GetNbins();ib++)
+    for (int jb=0;jb<hab->GetYaxis()->GetNbins();jb++)
+      if (hab->GetBinContent(ib+1,jb+1)>=acu_cut)
+	{
+	  nac++;
+	  
+	  double a=hab->GetXaxis()->GetBinCenter(ib+1);
+	  double b=hab->GetYaxis()->GetBinCenter(jb+1);
+	  double pt=5.7E-3*sqrt((a*a+1)/b/b);
+	  if (fabs(pt)<1.8) continue;
+	  tklet* tkl=&e->cand_[e->ntkl_];
+	  //printf("%x %x %d %d \n",e->lay_[i],e->lay_[j],(e->lay_[i]>>16)&0x3,(e->lay_[j]>>16)&0x3);
+	  //printf(" combi %d %f \n",e->ntkl_,pt);
+	  /*
+	  a=0;b=0;int na=0,nb=0;
+	  for (int k=-1;k<=1;k++)
+	    {
+	      a+=hab->GetXaxis()->GetBinCenter(ib+1+k)*hab->GetBinContent(ib+1+k,jb+1);
+	      na+=hab->GetBinContent(ib+1+k,jb+1);
+	      b+=hab->GetYaxis()->GetBinCenter(jb+1+k)*hab->GetBinContent(ib+1,jb+1+k);
+	      nb+=hab->GetBinContent(ib+1,jb+1+k);
+	    }
+	  a/=na;
+	  b/=nb;
+	  */  
+							
+						      
+
+	  tkl->nhit_=0; 
+	  tkl->pattern_=0; 
+	  tkl->pattern_ =0;
+	  tkl->ax_=a;
+	  tkl->bx_=b;
+	  e->ntkl_++;
+	} 
+  printf("Stub %d Combinaison %d \n",e->nstub_,nac);
+  
+ for (int ib=0;ib<hptphi->GetXaxis()->GetNbins();ib++)
+    for (int jb=0;jb<hptphi->GetYaxis()->GetNbins();jb++)
+      if (hptphi->GetBinContent(ib+1,jb+1)>=2)
+	{
+	  double th=hab->GetXaxis()->GetBinCenter(ib+1);
+	  double r=hab->GetYaxis()->GetBinCenter(jb+1);
+	  double a=-1./tan(th);
+	  double b=r/sin(th);
+	  double pt=5.7E-3*sqrt((a*a+1)/b/b);
+	  if (fabs(pt)<1.8) continue;
+	  double g_phi=th-PI/2.;
+	  if (g_phi<0) g_phi+=2*PI;
+	  printf("\t-->  %f %f \n",pt,g_phi);
+	}
+}
+void addLayerAcu(tklevent* e,uint32_t l1)
+{
+  DCHistogramHandler* rh=DCHistogramHandler::instance();
+ 
+  TH1* hdist=rh->GetTH1("distc");
+  if (hdist==0)
+    {
+      hdist=rh->BookTH1("distc",500,-0.0001,0.0001);
+    }
+  uint32_t ngood=0;
+  for (int it=0;it<e->ntkl_;it++)
+    {
+      tklet* t=&(e->cand_[it]);
+      if (t->nhit_<0) continue;
+      if ((t->pattern_&(1<<l1))!=0) continue; // layer already included
+
+      for (int is=0;is<e->nstub_;is++)
+	{
+	  if ((e->lay_[is]&0xFFFF)!=l1) continue;
+	  double r2=e->r_[is]*e->r_[is];
+	  r2=1.;
+	  double distx=r2*(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/sqrt(1+t->ax_*t->ax_);
+	  //	  if (fabs(distx)<1E-3)
+	  //printf("is %d %f r2 %f %f %f %x pattern %x  \n",is,e->r_[is],distx,r2,t->ax_,e->lay_[is],t->pattern_);
+
+	  hdist->Fill(distx);
+	  //if (fabs(distx)>0.3) continue;
+	  double cut=0.15;
+	  //cut=3.5E-5;
+	  cut=4E-5;
+	  
+	  //if (l1<=10) cut /=2;
+	  if (e->barrel_ && fabs(distx)>cut) continue;
+	  if (e->inter_ && fabs(distx)>cut) continue;
+	  if (e->endcap_ && fabs(distx)>cut) continue;
+	  t->idx_[t->nhit_++]=is;
+	  t->pattern_|=(1<<l1);
+
+	  //getchar();
+	  break;
+	}
+    }
+}
+
 
 void combineLayer(tklevent* e,uint32_t l1,uint32_t l2)
 {
+
   for (uint32_t i=0;i<e->nstub_;i++)
     {
       if ((e->lay_[i]&0xFFFF)!=l1) continue;
@@ -478,10 +605,14 @@ void  regressiontklet(tklet* t,tklevent* e)
 
       TH1* hdistx=rh->GetTH1(s.str()+"/distxy");
       TH1* hdxymin=rh->GetTH1(s.str()+"/dxymin");
+      TH1* hdxp=rh->GetTH1(s.str()+"/dxp");
+      TH1* hdyp=rh->GetTH1(s.str()+"/dyp");
       if (hdistx==0)
 	{
 	  hdistx=rh->BookTH1(s.str()+"/distxy",300,-0.5E-3,0.5E-3);
 	  hdxymin=rh->BookTH1(s.str()+"/dxymin",300,-0.5E-3,0.5E-3);
+	  hdxp=rh->BookTH1(s.str()+"/dxp",500,-0.1,0.1);
+	  hdyp=rh->BookTH1(s.str()+"/dyp",500,-0.1,0.1);
 	  printf("Booking %s histo\n",s.str().c_str());
 	}
       double dmin=9E10,admin=9E10;
@@ -493,6 +624,8 @@ void  regressiontklet(tklet* t,tklevent* e)
 	  if (layerh!=ilay) continue;
 	  double r2=e->r_[is]*e->r_[is];
 	  r2=1.;
+	  hdxp->Fill(e->xp_[is]);
+	  hdyp->Fill(e->yp_[is]);
 	  double distx=r2*(t->ax_*e->xp_[is]+t->bx_-e->yp_[is])/sqrt(1+t->ax_*t->ax_);
 	  //	  if (fabs(distx)<1E-3)
 	  //printf("is %d %f r2 %f %f %f %x pattern %x  \n",is,e->r_[is],distx,r2,t->ax_,e->lay_[is],t->pattern_);
@@ -526,6 +659,7 @@ uint32_t computeTklets(tklevent* e)
       for (int ih=0;ih<t->nhit_;ih++)
 	{
 	  idx=t->idx_[ih];
+	  //printf("adding hit %d \n",idx);
 	  int layerh=(e->lay_[idx]&0xFFFF);
 	  t->pattern_ |=(1<<layerh);
 	  t->sumx_+=e->xp_[idx];
@@ -541,6 +675,7 @@ uint32_t computeTklets(tklevent* e)
 	  t->nzr_+=1.;
 
 	}
+      //printf("%d %d  zr %f xy %f \n",it,t->nhit_,t->nzr_, t->nxy_);
       if (t->nzr_<2 || t->nxy_<2) 
 	{
 	  if (t->nhit_>0) t->nhit_*=-1;
@@ -563,14 +698,15 @@ uint32_t computeTklets(tklevent* e)
       if (xp1>0 && yp1<0 && t->phi_<PI) t->phi_+=PI;
       t->theta_=atan(-1./t->ax_);
       t->pt_=5.7E-3*sqrt((t->ax_*t->ax_+1)/t->bx_/t->bx_);
-      //      printf("%f %f  \n",t->ax_,t->bx_);
-      if (fabs(t->pt_)<1.8) {if (t->nhit_>0) t->nhit_*=-1;continue;}
+      //printf("Pt %f theta %f  \n",t->pt_,t->theta_);
+      if (fabs(t->pt_)<1.9) {if (t->nhit_>0) t->nhit_*=-1;continue;}
       s2z = t->sumz2_/t->nzr_-(t->sumz_/t->nzr_)*(t->sumz_/t->nzr_);
       szx = t->sumzr_/t->nzr_-(t->sumz_/t->nzr_)*(t->sumr_/t->nzr_);
 
       t->ar_= szx/s2z;
       t->br_=(t->sumr_/t->nzr_)-t->ar_*(t->sumz_/t->nzr_);
       t->z0_=-t->br_/t->ar_;
+      //printf("Z0 %f  %f %f \n",t->z0_,t->nxy_,t->nzr_);
       if (fabs(t->z0_)>20) {if (t->nhit_>0) t->nhit_*=-1;continue;}
       t->eta_=-log(fabs(tan(atan( t->ar_)/2)));
       t->eta_=-log(fabs((1+sqrt(1+t->ar_*t->ar_))/t->ar_) );
@@ -619,6 +755,7 @@ void addLayer(tklevent* e,uint32_t l1,TH1* hdist, TH1* hdistr)
 	  //if (fabs(distx)>0.3) continue;
 	  double cut=0.15;
 	  cut=3.5E-5;
+	  
 	  if (l1<=10) cut /=2;
 	  if (e->barrel_ && fabs(distx)>cut) continue;
 	  if (e->inter_ && fabs(distx)>cut) continue;
@@ -640,6 +777,8 @@ void addLayer(tklevent* e,uint32_t l1,TH1* hdist, TH1* hdistr)
 	}
     }
 }
+static TCanvas* CanvasGP=NULL;
+
 static tklevent evt;
 void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,uint32_t* layer,int32_t* flayer)
 {
@@ -656,6 +795,11 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
   TH1* hc2r=rh->GetTH1(s.str()+"chi2r");
   TH1* hr5=rh->GetTH1(s.str()+"chi2");
   TH2* hpthi=rh->GetTH2(s.str()+"pthi");
+  TH2* hab=rh->GetTH2("ab");
+  TH2* hptphi=rh->GetTH2("ptphi");
+  TH2* hacu=rh->GetTH2("nacu_vs_nstub");
+  TH2* hncand=rh->GetTH2("ncand_vs_nstub");
+  TH2* hntk=rh->GetTH2("ntk_vs_ncand");
   if (hd3==0)
     {
       hd3=rh->BookTH1(s.str()+"dist3",2000,-1.,1.);
@@ -667,6 +811,12 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
       hc2=rh->BookTH1(s.str()+"chi2",2000,0.,2.);
       hc2r=rh->BookTH1(s.str()+"chi2r",2000,0.,2.);
       hpthi=rh->BookTH2(s.str()+"pthi",200,0.,20.,200,0.,2*PI);
+      hab=rh->BookTH2("ab",1280,-0.3,1.6,256,-8.E-3,5E-3);
+      //hab=rh->BookTH2("ab",640,-0.3,1.6,128,-8.E-3,5E-3);
+      hptphi=rh->BookTH2("ptphi",128,0.,5.,256,0,PI);
+      hacu=rh->BookTH2("nacu_vs_nstub",768,0.1,768.1,250,-0.9,249.1);
+      hncand=rh->BookTH2("ncand_vs_nstub",768,0.1,768.1,64,-0.9,63.1);
+      hntk=rh->BookTH2("ntk_vs_ncand",64,-0.9,63.1,64,-0.9,63.1);
 
     }
   
@@ -700,14 +850,30 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
       if (isect%4==3) thmin=0.51;
       thmax=thmin+1.25;
     }
+  TH2* hroth=rh->GetTH2("rhotheta");
+  if (hroth== NULL)
+    hroth=rh->BookTH2("rhotheta",1024,-1.5,1.5,768,rhmin,rhmax);
   evt.sector_=isect;
   evt.nstub_ = nstub;
   memcpy(evt.x_,x,nstub*sizeof(float));
   memcpy(evt.y_,y,nstub*sizeof(float));
   memcpy(evt.z_,z,nstub*sizeof(float));
   memcpy(evt.lay_,layer,nstub*sizeof(uint32_t));
+
+  // int nsz=0;
+  // for (int is=0;is<nstub;is++)
+  //   {
+  //     if (((layer[is]>>16)&0x3)==0) continue;
+  //     evt.x_[nsz]=x[is];
+  //     evt.y_[nsz]=y[is];
+  //     evt.z_[nsz]=z[is];
+  //     evt.lay_[nsz]=layer[is];
+  //     nsz++;
+  //   }
+  // printf(" Number of stubs %d \n",nsz);
+  // evt.nstub_=nsz;
   memset(&evt.cand_,0,GPU_MAX_TKLET*sizeof(tklet));
-  for (uint16_t is=0;is<nstub;is++)
+  for (uint16_t is=0;is<evt.nstub_;is++)
     {
       double r2=(x[is]*x[is]+y[is]*y[is]);
       evt.xp_[is]=x[is]/r2;
@@ -720,6 +886,83 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
   evt.ntkl_=0;
   if (inter || barrel)
     {
+      hab->Reset();
+      hptphi->Reset();
+      hroth->Reset();
+      printf("%d stubs\n",nstub);
+      for (int i=8;i<=11;i++)
+	for (int j=i+1;j<=11;j++)
+	  combineLayerAcu(&evt,i,j,hab,hroth);
+
+      findCandidateAcu(&evt,hab,hroth);
+      hacu->Fill(evt.nstub_*1.,evt.ntkl_*1.);
+      for (int i=11;i>=5;i--)
+	addLayerAcu(&evt,i);
+      uint32_t ncand= computeTklets(&evt);
+      printf("J'ai trouve %d candidats\n",ncand);
+      hncand->Fill(evt.nstub_*1.,ncand*1.);
+      uint32_t nac=0;
+      theCandidateVector_.clear();
+  for (int it=0;it<evt.ntkl_;it++)
+    {
+      tklet* tk=&(evt.cand_[it]);
+      //printf("%f %f %f %f \n",tk->pt_,tk->phi_,tk->z0_,tk->nxy_);      
+      if (barrel && tk->nxy_<=4) continue;
+      if (endcap && tk->nxy_<=3) continue;
+      if (inter && tk->nxy_<=3) continue;
+     
+      tklet tkext;
+      memcpy(&tkext,tk,sizeof(tklet));
+
+      hpthi->Fill(fabs(tk->pt_),tk->phi_);
+      if (fabs(tk->z0_)>20.) continue;
+      if (fabs(tk->pt_)<1.8) continue;
+      hc2->Fill(TMath::Prob(tk->chi2_,(tk->nxy_-2)));
+      //if ( tk->nxy_>=3 && TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue;
+
+      hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
+      //if (tk->nzr_>2 && (endcap ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
+      //if (inter && tk->nzr_==2) continue;
+      //printf("Calling regression \n");
+      regressiontklet(&tkext,&evt);
+      nac++;
+      mctrack_t t;
+      t.z0=tk->z0_;
+      t.eta=tk->eta_;
+      t.matches=tk->pattern_;
+			  
+	      
+      t.nhits=tk->nhit_;
+      t.theta=tk->theta_;
+      t.r=tk->R_;
+
+      t.pt=fabs(tk->pt_);
+      t.phi=tk->phi_;
+
+      t.layers.clear();
+      theCandidateVector_.push_back(t);
+      printf("%d %f %f \n",nac,t.pt,t.phi);
+    }
+  hntk->Fill(ncand*1.,nac*1.);
+  printf("Candidats Acu %d \n",nac);
+  
+      if (CanvasGP==NULL)
+	{
+	  CanvasGP=new TCanvas("CanvasGP","hough",800,900);
+	  CanvasGP->Modified();
+	  CanvasGP->Draw();
+	}
+      CanvasGP->cd();
+      hroth->Draw("COLZ");
+      hroth->SetStats(0);
+      CanvasGP->Modified();
+      CanvasGP->Update();
+      CanvasGP->SaveAs("acumul.png");
+      char c;c=getchar();putchar(c); if (c=='.') exit(0);
+ return;
+  /*
+ */
+
       combineLayer(&evt,5,6);
       //printf("5-6 %d \n",evt.ntkl_);
       combineLayer(&evt,5,7);
@@ -761,9 +1004,11 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
   for (int it=0;it<evt.ntkl_;it++)
     {
       tklet* tk=&(evt.cand_[it]);
+      
       if (barrel && tk->nxy_<=4) continue;
       if (endcap && tk->nxy_<=3) continue;
       if (inter && tk->nxy_<=3) continue;
+     
       tklet tkext;
       memcpy(&tkext,tk,sizeof(tklet));
 
@@ -771,12 +1016,13 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
       if (fabs(tk->z0_)>20.) continue;
       if (fabs(tk->pt_)<1.8) continue;
       hc2->Fill(TMath::Prob(tk->chi2_,(tk->nxy_-2)));
-      if ( TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue;
+      if ( tk->nxy_>=3 && TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue;
 
       hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
       if (tk->nzr_>2 && (endcap ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
       if (inter && tk->nzr_==2) continue;
-      //regressiontklet(&tkext,&evt);
+      //printf("Calling regression \n");
+      regressiontklet(&tkext,&evt);
       ng++;
       mctrack_t t;
       t.z0=tk->z0_;
@@ -793,8 +1039,9 @@ void ComputerHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float*
 
       t.layers.clear();
       theCandidateVector_.push_back(t);
+      printf("%f %f \n",t.pt,t.phi);
     }
-  //printf("Candidats %d \n",ng);
+  printf("Candidats %d \n",ng);
   return;
   
 }

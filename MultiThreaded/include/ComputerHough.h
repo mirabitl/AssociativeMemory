@@ -20,6 +20,8 @@ public:
 
   std::vector<mctrack_t> &getCandidates(){return theCandidateVector_;}
   static void Convert(double theta,double r,mctrack_t *m);
+  void* getHough(){return &ph_;}
+
 protected:
   std::vector<mctrack_t> theCandidateVector_;
   houghParam ph_;

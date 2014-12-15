@@ -57,6 +57,7 @@ public:
   void FillMapGuillaumeNtuple(std::string name);
   void FillMapSebastienNtuple(std::string name);
   void CPULoopTest(std::string fname);
+  void GBLoopTest(std::string fname);
   void ReadRawL1TrackTrigger(std::string fname,int evtshift=0);
   void ReadFullInfo(std::string fname,int mode=0);
   void MemoryLoopTest(std::string directory,int32_t sector=-1);

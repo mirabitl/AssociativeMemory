@@ -8,6 +8,7 @@
 #include <TMath.h>
 #include "DCHistogramHandler.h"
 
+#define NEWGEOM
 CudaHough::CudaHough(HoughCut* cuts) :theCuts_(cuts)
 {
   theNStub_=0;
@@ -56,10 +57,16 @@ void CudaHough::Compute(uint32_t isel,uint32_t nstub,float* x,float* y,float* z,
   theZ_=z;  
   theLayer_=layer;
   theCandidateVector_.clear();
-  // Initialisation depending on sector 
+  // Initialisation depending on sector
+#ifndef NEWGEOM 
   bool barrel=isel>=16 && isel<40;
   bool inter=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
   bool endcap=(isel<8)||(isel>=48);
+#else
+  bool barrel=isel>=16 && isel<32;
+  bool inter=(isel>=8 &&isel<16)||(isel>=32&&isel<40);
+  bool endcap=(isel<8)||(isel>=40);
+#endif
   float thmin=-PI/2,thmax=PI/2;
   float rhmin=theCuts_->RhoMin,rhmax=theCuts_->RhoMax;
   //printf("On appelle le GPU %d \n",theNStub_);
@@ -268,9 +275,16 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
   theLayer_=layer;
   theCandidateVector_.clear();
   // Initialisation depending on sector 
+#ifndef NEWGEOM 
   bool barrel=isel>=16 && isel<40;
   bool inter=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
   bool endcap=(isel<8)||(isel>=48);
+#else
+  bool barrel=isel>=16 && isel<32;
+  bool inter=(isel>=8 &&isel<16)||(isel>=32&&isel<40);
+  bool endcap=(isel<8)||(isel>=40);
+#endif
+
   float thmin=-PI/2,thmax=PI/2;
   float rhmin=theCuts_->RhoMin,rhmax=theCuts_->RhoMax;
   //printf("On appelle le GPU %d \n",theNStub_);
@@ -295,18 +309,49 @@ void CudaHough::ComputeOneShot(uint32_t isel,uint32_t nstub,float* x,float* y,fl
     }
   ntheta=960;
   nrho=156;
+  theCuts_->NLayerRow=5;
   if (inter)
     {
+      //printf("#############STUBS %d \n",theNStub_);
+      theCuts_->NStubLow=5;
+      theCuts_->NStubLowCandidate=5;
+      theCuts_->NLayerRow=5;
       ntheta=1056;
       nrho=88;
+      ntheta=768;
+      nrho=112;
+      // Aout 2014
+       // ntheta=960;
+       // nrho=156; 
+       // theCuts_->NStubLow=4;
+       // theCuts_->NLayerRow=5;
+       // theCuts_->NStubLowCandidate=5;
+       // if (theNStub_>400)
+       // 	 {
+       // 	   ntheta*=2;
+       // 	   nrho*=2;
+       // 	 }
+      // Aout 2014
+      ntheta=1088; //960
+      nrho=112;
+      theCuts_->NStubLow=5;
+      theCuts_->NStubLowCandidate=5;
+      theCuts_->NLayerRow=5;
+
     }
   if (endcap)
     {
       ntheta=1056;
       nrho=64;
+      // Aout 2014
+      ntheta=1088; //960
+      nrho=96;
+      theCuts_->NStubLow=4;
+      theCuts_->NStubLowCandidate=4;
+      theCuts_->NLayerRow=5;
     }
-  theCuts_->NLayerRow=5;
-
+  
+  
   initialiseHough(&ph_,theNStub_,ntheta,nrho,thmin,thmax,rhmin,rhmax);
   // Rough process
   fillConformalHough(&ph_,theX_,theY_,theZ_);
@@ -448,8 +493,8 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
       hdr4=rh->BookTH1(s.str()+"distr4",200,-10.,10.);
       hphi5=rh->BookTH1("phi5",200,-PI,PI);
       hr5=rh->BookTH1(s.str()+"r5",200,0.,200.);
-      hc2=rh->BookTH1(s.str()+"chi2",2000,0.,2.);
-      hc2r=rh->BookTH1(s.str()+"chi2r",2000,0.,2.);
+      hc2=rh->BookTH1(s.str()+"chi2",4000,0.,1.01);
+      hc2r=rh->BookTH1(s.str()+"chi2r",4000,0.,1.01);
       hpthi=rh->BookTH2(s.str()+"pthi",200,0.,20.,200,0.,2*PI);
 
     }
@@ -461,6 +506,8 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
   theY_=y;
   theZ_=z;  
   theLayer_=layer;
+
+
   memcpy(et_.host_->x_,x,nstub*sizeof(float));
   memcpy(et_.host_->y_,y,nstub*sizeof(float));
   memcpy(et_.host_->z_,z,nstub*sizeof(float));
@@ -471,9 +518,19 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
   theCandidateVector_.clear();
   // Initialisation depending on sector 
   
-  et_.host_->barrel_=isel>=16 && isel<40;
-  et_.host_->inter_=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
-  et_.host_->endcap_=(isel<8)||(isel>=48);
+#ifndef NEWGEOM 
+  bool barrel=isel>=16 && isel<40;
+  bool inter=(isel>=8 &&isel<16)||(isel>=40&&isel<48);
+  bool endcap=(isel<8)||(isel>=48);
+#else
+  bool barrel=isel>=16 && isel<32;
+  bool inter=(isel>=8 &&isel<16)||(isel>=32&&isel<40);
+  bool endcap=(isel<8)||(isel>=40);
+#endif
+  et_.host_->barrel_=barrel;
+  et_.host_->inter_=inter;
+  et_.host_->endcap_=endcap;
+
   //copyFromHost(&et_);
   et_.host_->ntkl_=0;
   fillDevice(&et_);
@@ -493,8 +550,9 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
       ctklet* tk=&(et_.host_->cand_[it]);
       if (!tk->ok_) continue;
       if (et_.host_->barrel_ && tk->nxy_<=4) continue;
-      if (et_.host_->endcap_ && tk->nxy_<=3) continue;
+      if (et_.host_->endcap_ && tk->nxy_<=3) continue; //3
       if (et_.host_->inter_ && tk->nxy_<=3) continue;
+
       // if (tk->ok_)
       // 	printf("\t %d %d %f : %f %f %f \n",it,tk->ok_,tk->nxy_,tk->pt_,tk->phi_,tk->z0_); 
 
@@ -503,14 +561,16 @@ void CudaHough::ComputeTracklet(uint32_t isel,uint32_t nstub,float* x,float* y,f
 
       //hpthi->Fill(fabs(tk->pt_),tk->phi_);
       if (fabs(tk->z0_)>20.) continue;
-      if (fabs(tk->pt_)<1.8) continue;
+      if (fabs(tk->pt_)<1.9) continue;
       hc2->Fill(TMath::Prob(tk->chi2_,(tk->nxy_-2)));
-      if ( TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue;
+      if ( TMath::Prob(tk->chi2_,tk->nxy_-2)<1E-3) continue; // 1E-3
 
       hc2r->Fill(TMath::Prob(tk->chi2r_,tk->nzr_-2));
-      if (tk->nzr_>2 && (et_.host_->endcap_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
-      if (tk->nzr_>2 && (et_.host_->barrel_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<5E-3) continue;
+      if (tk->nzr_>2 && (et_.host_->endcap_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<2E-3) continue;
+      if (tk->nzr_>2 && (et_.host_->barrel_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<2E-3) continue;
+      if (tk->nzr_>2 && (et_.host_->inter_ ) &&  TMath::Prob(tk->chi2r_,tk->nzr_-2)<2E-3) continue;
       if (et_.host_->inter_ && tk->nzr_<=2) continue;
+      //if (et_.host_->endcap_ && tk->nzr_<=2) continue;
       //if (et_.host_->barrel_ && tk->nzr_==2) continue;
       //regressiontklet(&tkext,&evt);
       ng++;
